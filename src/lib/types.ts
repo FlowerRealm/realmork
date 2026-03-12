@@ -24,6 +24,13 @@ export type HomeworkPayload = {
 
 export type ViewMode = "today" | "records";
 
+export type DailyQuote = {
+  text: string;
+  author: string;
+  quoteDate: string;
+  source: "online" | "cache" | "library";
+};
+
 export function isSupportedSubject(subject: string): subject is SupportedSubject {
   return supportedSubjects.some((item) => item === subject);
 }

@@ -59,10 +59,11 @@ async function startBackend() {
   }
 
   const token = randomBytes(24).toString("hex");
+  const quoteALAPIToken = process.env.REALMORK_ALAPI_TOKEN ?? "";
   const dataDir = app.getPath("userData");
   const binary = resolveBackendBinary();
 
-  backendProcess = spawn(binary, ["-data-dir", dataDir, "-token", token, "-port", "0"], {
+  backendProcess = spawn(binary, ["-data-dir", dataDir, "-token", token, "-port", "0", "-quote-alapi-token", quoteALAPIToken], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "pipe"]
   });

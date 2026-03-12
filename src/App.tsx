@@ -1,17 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import "./styles.css";
-import { createHomework, deleteHomework, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
-import type { Homework, HomeworkPayload, ViewMode } from "./lib/types";
-import { formatMonthDayWeekday } from "./lib/format";
+import { createHomework, deleteHomework, getDailyQuote, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
+import type { DailyQuote, Homework, HomeworkPayload, ViewMode } from "./lib/types";
 import { HomeworkCard } from "./components/HomeworkCard";
+import { FloatingTopbar } from "./components/FloatingTopbar";
 import { HomeworkModal } from "./components/HomeworkModal";
 
 const TODAY_CAPACITY = 10;
+
+function millisecondsUntilNextMidnight(now: Date): number {
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 0);
+  return Math.max(nextMidnight.getTime() - now.getTime(), 1000);
+}
+
+function millisecondsUntilNextMinute(now: Date): number {
+  const nextMinute = new Date(now);
+  nextMinute.setSeconds(60, 0);
+  return Math.max(nextMinute.getTime() - now.getTime(), 250);
+}
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [todayHomeworks, setTodayHomeworks] = useState<Homework[]>([]);
   const [recordHomeworks, setRecordHomeworks] = useState<Homework[]>([]);
+  const [dailyQuote, setDailyQuote] = useState<DailyQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -45,11 +58,62 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
+    let cancelled = false;
+    let timer = 0;
 
-    return () => window.clearInterval(timer);
+    function scheduleClockTick() {
+      const delay = millisecondsUntilNextMinute(new Date());
+      timer = window.setTimeout(() => {
+        setCurrentTime(new Date());
+        if (!cancelled) {
+          scheduleClockTick();
+        }
+      }, delay);
+    }
+
+    scheduleClockTick();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer = 0;
+
+    async function loadQuote() {
+      try {
+        const nextQuote = await getDailyQuote();
+        if (!cancelled) {
+          setDailyQuote(nextQuote);
+        }
+      } catch {
+        if (!cancelled) {
+          setDailyQuote(null);
+        }
+      }
+    }
+
+    function scheduleNextRefresh() {
+      const delay = millisecondsUntilNextMidnight(new Date());
+      timer = window.setTimeout(() => {
+        void loadQuote().finally(() => {
+          if (!cancelled) {
+            scheduleNextRefresh();
+          }
+        });
+      }, delay);
+    }
+
+    void loadQuote();
+    scheduleNextRefresh();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   const visibleTodayHomeworks = useMemo(() => todayHomeworks.slice(0, TODAY_CAPACITY), [todayHomeworks]);
@@ -58,7 +122,6 @@ export default function App() {
   const currentItems = isTodayView ? visibleTodayHomeworks : recordHomeworks;
   const listTitle = isTodayView ? "今日作业" : "全部记录";
   const listMeta = isTodayView ? (hiddenCount > 0 ? `仅显示最近 10 条，剩余 ${hiddenCount} 条在记录中` : "按截止时间从近到远") : "按截止时间倒序";
-  const topbarDate = formatMonthDayWeekday(currentTime);
 
   async function handleSave(payload: HomeworkPayload, existingId?: string) {
     if (existingId) {
@@ -106,11 +169,7 @@ export default function App() {
   return (
     <div className="shell">
       <main className="workspace-frame">
-        <header className="floating-topbar" aria-label="当前日期">
-          <time className="topbar-date" dateTime={currentTime.toISOString()}>
-            {topbarDate}
-          </time>
-        </header>
+        <FloatingTopbar currentTime={currentTime} dailyQuote={dailyQuote} />
 
         <section className="list-panel">
           <header className="column-toolbar">
