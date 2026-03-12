@@ -60,11 +60,28 @@ function invalidateBackendRun() {
   backendReadyPromise = null;
 }
 
-function stopBackendProcess() {
-  if (backendProcess && !backendProcess.killed) {
-    backendProcess.kill();
-  }
+async function stopBackendProcess() {
+  const child = backendProcess;
   backendProcess = undefined;
+
+  if (!child || child.killed || child.exitCode !== null) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      child.off("exit", handleExit);
+      resolve();
+    }, 5000);
+
+    function handleExit() {
+      clearTimeout(timeout);
+      resolve();
+    }
+
+    child.once("exit", handleExit);
+    child.kill();
+  });
 }
 
 function resolveBackendLaunch(token) {
@@ -331,7 +348,7 @@ ipcMain.handle("realmork:wait-for-backend", async () => {
 
 ipcMain.handle("realmork:retry-backend-start", async () => {
   invalidateBackendRun();
-  stopBackendProcess();
+  await stopBackendProcess();
   return launchBackend();
 });
 
@@ -363,5 +380,5 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   appQuitting = true;
   invalidateBackendRun();
-  stopBackendProcess();
+  void stopBackendProcess();
 });
