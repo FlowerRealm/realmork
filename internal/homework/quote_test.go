@@ -248,11 +248,41 @@ func TestDailyQuoteCacheSaveKeepsPreviousEntryWhenPersistFails(t *testing.T) {
 		QuoteDate: "2026-03-12",
 	}
 	if err := cache.Save(next); err == nil {
-		t.Fatal("Save() should fail when replacing cache path directory")
+		t.Fatal("Save() should fail when target path is a directory")
 	}
 
 	if cached := cache.Get(); cached != initial {
 		t.Fatalf("cache entry mutated on failed save, got %+v want %+v", cached, initial)
+	}
+}
+
+func TestReplaceFileReplacesExistingTarget(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	targetPath := filepath.Join(dir, "daily-quote.json")
+	tempPath := filepath.Join(dir, "daily-quote.tmp")
+
+	if err := os.WriteFile(targetPath, []byte("old"), 0o644); err != nil {
+		t.Fatalf("WriteFile() target error = %v", err)
+	}
+	if err := os.WriteFile(tempPath, []byte("new"), 0o644); err != nil {
+		t.Fatalf("WriteFile() temp error = %v", err)
+	}
+
+	if err := replaceFile(tempPath, targetPath); err != nil {
+		t.Fatalf("replaceFile() error = %v", err)
+	}
+
+	content, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("ReadFile() target error = %v", err)
+	}
+	if string(content) != "new" {
+		t.Fatalf("target content = %q, want new", string(content))
+	}
+	if _, err := os.Stat(tempPath); !os.IsNotExist(err) {
+		t.Fatalf("temp file should be gone, stat err = %v", err)
 	}
 }
 

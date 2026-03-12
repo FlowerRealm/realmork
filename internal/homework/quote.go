@@ -171,12 +171,59 @@ func (c *DailyQuoteCache) Save(entry dailyQuoteCacheEntry) error {
 		return fmt.Errorf("close quote cache temp file: %w", err)
 	}
 
-	if err := os.Rename(tempFile.Name(), c.path); err != nil {
+	if err := replaceFile(tempFile.Name(), c.path); err != nil {
 		os.Remove(tempFile.Name())
 		return fmt.Errorf("replace quote cache: %w", err)
 	}
 
 	c.entry = entry
+	return nil
+}
+
+func replaceFile(tempPath string, targetPath string) error {
+	targetInfo, statErr := os.Stat(targetPath)
+	if statErr == nil && targetInfo.IsDir() {
+		return fmt.Errorf("target path is a directory")
+	}
+
+	renameErr := os.Rename(tempPath, targetPath)
+	if renameErr == nil {
+		return nil
+	}
+
+	if statErr != nil {
+		if os.IsNotExist(statErr) {
+			return fmt.Errorf("rename temp file: %w", renameErr)
+		}
+		return fmt.Errorf("stat target file: %w", statErr)
+	}
+
+	backupFile, err := os.CreateTemp(filepath.Dir(targetPath), filepath.Base(targetPath)+".bak-*")
+	if err != nil {
+		return fmt.Errorf("create backup path: %w", err)
+	}
+
+	backupPath := backupFile.Name()
+	if err := backupFile.Close(); err != nil {
+		os.Remove(backupPath)
+		return fmt.Errorf("close backup path: %w", err)
+	}
+	if err := os.Remove(backupPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("prepare backup path: %w", err)
+	}
+
+	if err := os.Rename(targetPath, backupPath); err != nil {
+		return fmt.Errorf("backup target file: %w", err)
+	}
+
+	if err := os.Rename(tempPath, targetPath); err != nil {
+		if restoreErr := os.Rename(backupPath, targetPath); restoreErr != nil {
+			return fmt.Errorf("move new file into place: %w (restore backup: %v)", err, restoreErr)
+		}
+		return fmt.Errorf("move new file into place: %w", err)
+	}
+
+	_ = os.Remove(backupPath)
 	return nil
 }
 
