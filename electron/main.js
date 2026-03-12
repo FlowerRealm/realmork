@@ -13,6 +13,16 @@ let backendProcess;
 let mainWindow;
 let backendInfoPromise;
 
+function configureApplicationMenu() {
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
+  const menu = Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]);
+  Menu.setApplicationMenu(menu);
+}
+
 function resolveBackendBinary() {
   const builtBinary = path.join(process.cwd(), "dist", "bin", process.platform === "win32" ? "homeworkd.exe" : "homeworkd");
   if (process.env.NODE_ENV === "production") {
@@ -121,7 +131,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  Menu.setApplicationMenu(null);
+  configureApplicationMenu();
 
   try {
     await createWindow();
