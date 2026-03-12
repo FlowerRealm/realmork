@@ -35,6 +35,11 @@ function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+type RefreshRecordsOptions = {
+  blocking?: boolean;
+  backendState?: BackendState;
+};
+
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [records, setRecords] = useState<Homework[]>([]);
@@ -56,8 +61,9 @@ export default function App() {
     });
   });
 
-  const refreshRecords = useEffectEvent(async (options?: { blocking?: boolean }) => {
-    if (backendState.status !== "ready") {
+  const refreshRecords = useEffectEvent(async (options?: RefreshRecordsOptions) => {
+    const resolvedBackendState = options?.backendState ?? backendState;
+    if (resolvedBackendState.status !== "ready") {
       return;
     }
 
@@ -248,7 +254,10 @@ export default function App() {
     try {
       const nextBackendState = await retryBackendStart();
       setBackendState(nextBackendState);
-      await refreshRecords({ blocking: !hasLoadedRecords });
+      await refreshRecords({
+        blocking: !hasLoadedRecords,
+        backendState: nextBackendState
+      });
     } catch (retryError) {
       setError(toErrorMessage(retryError, "重试失败"));
       setLoading(false);

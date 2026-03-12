@@ -190,6 +190,37 @@ describe("App", () => {
     });
   });
 
+  it("refreshes records after retrying a dropped backend with cached data", async () => {
+    const initialHomework = buildHomework(1, { content: "初始内容" });
+    const refreshedHomework = buildHomework(2, { content: "重试后的内容" });
+    vi.mocked(api.listHomeworks).mockResolvedValueOnce([initialHomework]).mockResolvedValueOnce([refreshedHomework]);
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByText("初始内容")).toBeInTheDocument();
+
+    await act(async () => {
+      mockedBackend.__setBackendState({
+        status: "error",
+        apiBaseUrl: "",
+        apiToken: "",
+        error: "backend dropped"
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("backend dropped")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "重试连接" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(backend.retryBackendStart)).toHaveBeenCalledTimes(1);
+      expect(api.listHomeworks).toHaveBeenCalledTimes(2);
+      expect(screen.getByText("重试后的内容")).toBeInTheDocument();
+    });
+  });
+
   it("limits homework subjects to supported choices in the modal", async () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
     const user = userEvent.setup();
