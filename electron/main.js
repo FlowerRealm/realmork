@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,16 @@ const __dirname = path.dirname(__filename);
 let backendProcess;
 let mainWindow;
 let backendInfoPromise;
+
+function configureApplicationMenu() {
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
+  const menu = Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]);
+  Menu.setApplicationMenu(menu);
+}
 
 function resolveBackendBinary() {
   const builtBinary = path.join(process.cwd(), "dist", "bin", process.platform === "win32" ? "homeworkd.exe" : "homeworkd");
@@ -91,7 +101,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1366,
     minHeight: 840,
-    backgroundColor: "#ece7dc",
+    backgroundColor: "#f7f1e9",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       additionalArguments: [
@@ -122,6 +132,8 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  configureApplicationMenu();
+
   try {
     await createWindow();
   } catch (error) {
