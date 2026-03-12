@@ -10,7 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKEND_STATE_EVENT = "realmork:backend-state";
 const DEV_RENDERER_URL = process.env.ELECTRON_RENDERER_URL ?? "";
-const isDevelopment = DEV_RENDERER_URL !== "" || process.env.NODE_ENV === "development";
+const hasRendererDevServer = DEV_RENDERER_URL !== "";
+const useDevelopmentBackend = process.env.NODE_ENV === "development";
 
 let backendProcess;
 let mainWindow;
@@ -68,7 +69,7 @@ function stopBackendProcess() {
 function resolveBackendLaunch(token) {
   const args = ["-data-dir", app.getPath("userData"), "-token", token, "-port", "0"];
 
-  if (isDevelopment) {
+  if (useDevelopmentBackend) {
     return {
       command: "go",
       args: ["run", "./cmd/homeworkd", ...args]
@@ -257,7 +258,7 @@ async function attachDevelopmentRenderer(window) {
 }
 
 async function loadInitialPage(window) {
-  if (isDevelopment) {
+  if (hasRendererDevServer) {
     await window.loadFile(path.join(__dirname, "boot.html"));
     void attachDevelopmentRenderer(window);
     return;
