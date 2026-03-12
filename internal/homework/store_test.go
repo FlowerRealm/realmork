@@ -252,6 +252,34 @@ func TestDeriveViewNeedsSubmissionAtDueTime(t *testing.T) {
 	}
 }
 
+func TestDeriveViewUsesBeijingTimezoneForClassification(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 11, 17, 0, 0, 0, time.UTC)
+	item := Homework{
+		ID:        "cross-zone",
+		Subject:   "英语",
+		Content:   "跨时区测试",
+		DueAt:     time.Date(2026, 3, 12, 0, 30, 0, 0, time.FixedZone("CST", 8*60*60)),
+		CreatedAt: now.Add(-time.Hour),
+		UpdatedAt: now.Add(-time.Minute),
+	}
+
+	view := deriveView(item, now)
+	if !view.IsToday {
+		t.Fatal("expected IsToday to use Beijing day boundaries")
+	}
+	if view.IsOverdue {
+		t.Fatal("expected future Beijing item to not be overdue")
+	}
+	if !view.NeedsSubmission {
+		t.Fatal("expected item before current Beijing time to require submission")
+	}
+	if got := view.DueAt.Location().String(); got != beijingLocation.String() {
+		t.Fatalf("expected DueAt to be converted to Beijing timezone, got %q", got)
+	}
+}
+
 func TestAPIHandlerSupportsCORSPreflight(t *testing.T) {
 	t.Parallel()
 

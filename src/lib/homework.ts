@@ -1,11 +1,11 @@
+import { getBeijingDateParts } from "./format";
 import type { Homework } from "./types";
 
 function sameDay(left: Date, right: Date): boolean {
-  return (
-    left.getFullYear() === right.getFullYear() &&
-    left.getMonth() === right.getMonth() &&
-    left.getDate() === right.getDate()
-  );
+  const leftParts = getBeijingDateParts(left);
+  const rightParts = getBeijingDateParts(right);
+
+  return leftParts.year === rightParts.year && leftParts.month === rightParts.month && leftParts.day === rightParts.day;
 }
 
 function toTimestamp(value: string): number {

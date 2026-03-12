@@ -306,6 +306,7 @@ describe("App", () => {
 
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "记录" }));
     await user.click(await screen.findByRole("button", { name: "提交" }));
 
     await waitFor(() => {
