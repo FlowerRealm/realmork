@@ -1,14 +1,13 @@
+import { waitForBackend } from "./backend";
 import type { Homework, HomeworkPayload, ViewMode } from "./types";
 
-const apiBaseUrl = window.realmork?.apiBaseUrl ?? "";
-const apiToken = window.realmork?.apiToken ?? "";
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const backend = await waitForBackend();
+  const response = await fetch(`${backend.apiBaseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-Realmork-Token": apiToken,
+      "X-Realmork-Token": backend.apiToken,
       ...(init?.headers ?? {})
     }
   });

@@ -313,6 +313,103 @@ button {
   color: var(--text-soft);
 }
 
+.loading-state {
+  gap: 0;
+}
+
+.loading-mark {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  display: grid;
+  place-items: center;
+}
+
+.loading-glow,
+.loading-orbit,
+.loading-core {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.loading-glow {
+  inset: auto;
+  filter: blur(14px);
+  opacity: 0.72;
+}
+
+.loading-glow-a {
+  width: 116px;
+  height: 116px;
+  background: rgba(255, 255, 255, 0.62);
+  animation: loaderPulse 2.4s ease-in-out infinite;
+}
+
+.loading-glow-b {
+  width: 68px;
+  height: 68px;
+  background: rgba(195, 207, 223, 0.78);
+  animation: loaderPulse 2.4s ease-in-out infinite 0.28s;
+}
+
+.loading-orbit {
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
+.loading-orbit::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(33, 41, 52, 0.74);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18);
+}
+
+.loading-orbit-a {
+  animation: loaderSpin 2.8s linear infinite;
+}
+
+.loading-orbit-b {
+  inset: 20px;
+  border-color: rgba(255, 255, 255, 0.3);
+  animation: loaderSpinReverse 2.1s linear infinite;
+}
+
+.loading-core {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(180deg, rgba(33, 41, 52, 0.84), rgba(92, 103, 118, 0.68));
+  box-shadow: 0 12px 28px rgba(70, 82, 97, 0.2);
+}
+
+.sync-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--text-soft);
+}
+
+.sync-banner.error {
+  color: var(--warn);
+  background: rgba(222, 198, 193, 0.14);
+  border-color: rgba(132, 92, 87, 0.12);
+}
+
+.sync-banner p {
+  margin: 0;
+}
+
 .panel-state.error {
   color: var(--warn);
 }
@@ -436,6 +533,39 @@ button {
   border-radius: 999px;
 }
 
+@keyframes loaderSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loaderSpinReverse {
+  from {
+    transform: rotate(360deg);
+  }
+
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes loaderPulse {
+  0%,
+  100% {
+    transform: scale(0.88);
+    opacity: 0.46;
+  }
+
+  50% {
+    transform: scale(1);
+    opacity: 0.82;
+  }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -552,6 +682,7 @@ button {
   .item-top,
   .item-bottom,
   .list-head,
+  .sync-banner,
   .modal-header,
   .modal-actions {
     flex-direction: column;

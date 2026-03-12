@@ -1,81 +1,227 @@
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "react";
 import "./styles.css";
 import { createHomework, deleteHomework, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
-import type { Homework, HomeworkPayload, ViewMode } from "./lib/types";
+import { getBackendState, retryBackendStart, subscribeBackendState, type BackendState } from "./lib/backend";
 import { formatMonthDayWeekday } from "./lib/format";
+import { removeHomework, sortRecordHomeworks, sortTodayHomeworks, upsertHomework, withDerivedHomeworkState } from "./lib/homework";
+import type { Homework, HomeworkPayload, ViewMode } from "./lib/types";
 import { HomeworkCard } from "./components/HomeworkCard";
 import { HomeworkModal } from "./components/HomeworkModal";
 
 const TODAY_CAPACITY = 10;
+const FOCUS_REFRESH_THRESHOLD = 60_000;
+const initialBackendState: BackendState = {
+  status: "starting",
+  apiBaseUrl: "",
+  apiToken: "",
+  error: ""
+};
+
+function LoadingState({ label }: { label: string }) {
+  return (
+    <div className="panel-state loading-state" role="status" aria-label={label} aria-live="polite" aria-busy="true">
+      <div className="loading-mark" aria-hidden="true">
+        <span className="loading-glow loading-glow-a"></span>
+        <span className="loading-glow loading-glow-b"></span>
+        <span className="loading-orbit loading-orbit-a"></span>
+        <span className="loading-orbit loading-orbit-b"></span>
+        <span className="loading-core"></span>
+      </div>
+    </div>
+  );
+}
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
-  const [todayHomeworks, setTodayHomeworks] = useState<Homework[]>([]);
-  const [recordHomeworks, setRecordHomeworks] = useState<Homework[]>([]);
+  const [records, setRecords] = useState<Homework[]>([]);
+  const [backendState, setBackendState] = useState<BackendState>(initialBackendState);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
-  async function loadAll() {
-    setLoading(true);
+  const hasLoadedRecords = lastSyncedAt !== null;
+
+  const applyRecordsMutation = useEffectEvent((updater: (items: Homework[]) => Homework[]) => {
+    startTransition(() => {
+      setRecords((current) => updater(current));
+      setLastSyncedAt(Date.now());
+    });
+  });
+
+  const refreshRecords = useEffectEvent(async (options?: { blocking?: boolean }) => {
+    if (backendState.status !== "ready") {
+      return;
+    }
+
+    const blocking = options?.blocking ?? !hasLoadedRecords;
+    if (blocking) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
     setError("");
+
     try {
-      const [today, records] = await Promise.all([listHomeworks("today"), listHomeworks("records")]);
-      setTodayHomeworks(today);
-      setRecordHomeworks(records);
+      const nextRecords = await listHomeworks("records");
+      startTransition(() => {
+        setRecords(nextRecords);
+        setLastSyncedAt(Date.now());
+      });
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "加载失败");
+      setError(toErrorMessage(loadError, "加载失败"));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
+  });
+
+  const refreshOnFocus = useEffectEvent(() => {
+    if (backendState.status !== "ready" || !hasLoadedRecords || loading || refreshing || lastSyncedAt === null) {
+      return;
+    }
+
+    if (Date.now() - lastSyncedAt < FOCUS_REFRESH_THRESHOLD) {
+      return;
+    }
+
+    void refreshRecords({ blocking: false });
+  });
 
   useEffect(() => {
-    void loadAll();
+    let subscribed = true;
+
+    void getBackendState()
+      .then((state) => {
+        if (!subscribed) {
+          return;
+        }
+
+        setBackendState(state);
+        if (state.status === "error") {
+          setLoading(false);
+        }
+      })
+      .catch((backendError) => {
+        if (!subscribed) {
+          return;
+        }
+
+        setBackendState({
+          ...initialBackendState,
+          status: "error",
+          error: toErrorMessage(backendError, "本地服务不可用")
+        });
+        setLoading(false);
+      });
+
+    const unsubscribe = subscribeBackendState((state) => {
+      if (!subscribed) {
+        return;
+      }
+
+      setBackendState(state);
+      if (state.status === "error") {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    });
+
+    return () => {
+      subscribed = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void loadAll();
-    }, 30000);
+    if (backendState.status !== "ready" || hasLoadedRecords) {
+      return;
+    }
 
-    return () => window.clearInterval(timer);
+    void refreshRecords({ blocking: true });
+  }, [backendState.status, hasLoadedRecords]);
+
+  useEffect(() => {
+    const intervalID = window.setInterval(() => {
+      startTransition(() => {
+        setCurrentTime(new Date());
+      });
+    }, 60_000);
+
+    return () => window.clearInterval(intervalID);
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
+    const handleFocus = () => {
+      refreshOnFocus();
+    };
 
-    return () => window.clearInterval(timer);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
   }, []);
 
-  const visibleTodayHomeworks = useMemo(() => todayHomeworks.slice(0, TODAY_CAPACITY), [todayHomeworks]);
-  const hiddenCount = Math.max(todayHomeworks.length - visibleTodayHomeworks.length, 0);
+  const decoratedRecords = useMemo(
+    () => records.map((homework) => withDerivedHomeworkState(homework, currentTime)),
+    [records, currentTime]
+  );
+
+  const sortedRecordHomeworks = useMemo(() => sortRecordHomeworks(decoratedRecords), [decoratedRecords]);
+  const sortedTodayHomeworks = useMemo(
+    () => sortTodayHomeworks(decoratedRecords.filter((homework) => homework.isToday || homework.isOverdue)),
+    [decoratedRecords]
+  );
+
+  const visibleTodayHomeworks = useMemo(
+    () => sortedTodayHomeworks.slice(0, TODAY_CAPACITY),
+    [sortedTodayHomeworks]
+  );
+
+  const hiddenCount = Math.max(sortedTodayHomeworks.length - visibleTodayHomeworks.length, 0);
   const isTodayView = viewMode === "today";
-  const currentItems = isTodayView ? visibleTodayHomeworks : recordHomeworks;
+  const currentItems = isTodayView ? visibleTodayHomeworks : sortedRecordHomeworks;
   const listTitle = isTodayView ? "今日作业" : "全部记录";
-  const listMeta = isTodayView ? (hiddenCount > 0 ? `仅显示最近 10 条，剩余 ${hiddenCount} 条在记录中` : "按截止时间从近到远") : "按截止时间倒序";
+  const listMetaBase = isTodayView
+    ? hiddenCount > 0
+      ? `仅显示最近 10 条，剩余 ${hiddenCount} 条在记录中`
+      : "按截止时间从近到远"
+    : "按截止时间倒序";
+  const listMeta = refreshing ? `${listMetaBase} · 同步中...` : listMetaBase;
   const topbarDate = formatMonthDayWeekday(currentTime);
 
+  const bannerMessage =
+    backendState.status === "error" && hasLoadedRecords
+      ? backendState.error
+      : error && hasLoadedRecords
+        ? error
+        : "";
+  const blockingLabel = backendState.status === "starting" ? "本地服务启动中" : "作业数据加载中";
+
   async function handleSave(payload: HomeworkPayload, existingId?: string) {
-    if (existingId) {
-      await updateHomework(existingId, payload);
-    } else {
-      await createHomework(payload);
-    }
-    await loadAll();
+    setError("");
+
+    const savedHomework = existingId ? await updateHomework(existingId, payload) : await createHomework(payload);
+    applyRecordsMutation((current) => upsertHomework(current, savedHomework));
   }
 
   async function handleToggleSubmitted(homework: Homework) {
-    if (homework.submitted) {
-      await unsubmitHomework(homework.id);
-    } else {
-      await submitHomework(homework.id);
+    setError("");
+
+    try {
+      const updatedHomework = homework.submitted ? await unsubmitHomework(homework.id) : await submitHomework(homework.id);
+      applyRecordsMutation((current) => upsertHomework(current, updatedHomework));
+    } catch (submitError) {
+      setError(toErrorMessage(submitError, "操作失败"));
     }
-    await loadAll();
   }
 
   async function handleDelete(homework: Homework) {
@@ -87,9 +233,26 @@ export default function App() {
     setError("");
     try {
       await deleteHomework(homework.id);
-      await loadAll();
+      applyRecordsMutation((current) => removeHomework(current, homework.id));
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "删除失败");
+      setError(toErrorMessage(deleteError, "删除失败"));
+    }
+  }
+
+  async function handleRetryConnection() {
+    setError("");
+    if (!hasLoadedRecords) {
+      setLoading(true);
+    }
+
+    try {
+      const nextBackendState = await retryBackendStart();
+      setBackendState(nextBackendState);
+      await refreshRecords({ blocking: !hasLoadedRecords });
+    } catch (retryError) {
+      setError(toErrorMessage(retryError, "重试失败"));
+      setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -140,15 +303,46 @@ export default function App() {
             <span>{listMeta}</span>
           </div>
 
-          {error ? (
-            <div className="panel-state error">
-              <p>{error}</p>
-              <button className="ghost-button compact" type="button" onClick={() => void loadAll()}>
-                重新加载
+          {bannerMessage ? (
+            <div className="sync-banner error" role="status">
+              <p>{bannerMessage}</p>
+              <button
+                className="ghost-button compact"
+                type="button"
+                onClick={() => {
+                  if (backendState.status === "error") {
+                    void handleRetryConnection();
+                    return;
+                  }
+
+                  void refreshRecords({ blocking: false });
+                }}
+              >
+                {backendState.status === "error" ? "重试连接" : "重新加载"}
               </button>
             </div>
-          ) : loading ? (
-            <div className="panel-state">正在加载作业...</div>
+          ) : null}
+
+          {!hasLoadedRecords && (backendState.status === "error" || error) ? (
+            <div className="panel-state error">
+              <p>{backendState.status === "error" ? backendState.error : error}</p>
+              <button
+                className="ghost-button compact"
+                type="button"
+                onClick={() => {
+                  if (backendState.status === "error") {
+                    void handleRetryConnection();
+                    return;
+                  }
+
+                  void refreshRecords({ blocking: true });
+                }}
+              >
+                {backendState.status === "error" ? "重试连接" : "重新加载"}
+              </button>
+            </div>
+          ) : !hasLoadedRecords ? (
+            <LoadingState label={blockingLabel} />
           ) : (
             <div className={`list-items ${isTodayView ? "today-items" : "records-items"}`}>
               {currentItems.length === 0 ? (
