@@ -24,6 +24,7 @@ let backendState = {
 };
 let backendRunID = 0;
 let appQuitting = false;
+let waitingForBackendShutdown = false;
 
 function resolveBackendBinary() {
   return path.join(process.cwd(), "dist", "bin", process.platform === "win32" ? "homeworkd.exe" : "homeworkd");
@@ -375,8 +376,17 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (waitingForBackendShutdown) {
+    return;
+  }
+
+  waitingForBackendShutdown = true;
+  event.preventDefault();
   appQuitting = true;
   invalidateBackendRun();
-  void stopBackendProcess();
+
+  void stopBackendProcess().finally(() => {
+    app.quit();
+  });
 });
