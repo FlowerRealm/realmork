@@ -63,13 +63,71 @@ describe("App", () => {
 
     const { container } = render(<App />);
 
+    expect(container.querySelector(".page-header")).not.toBeNull();
     expect(container.querySelector(".floating-topbar")).not.toBeNull();
+    expect(container.querySelector(".dashboard-layout")).not.toBeNull();
     expect(container.querySelector(".list-panel")).not.toBeNull();
+    expect(container.querySelector(".summary-panel")).not.toBeNull();
 
     await user.click(await screen.findByRole("button", { name: "新增作业" }));
 
     expect(container.querySelector(".modal-backdrop")).not.toBeNull();
     expect(container.querySelector(".modal-card")).not.toBeNull();
+  });
+
+  it("shows summary metrics and caps recent pending items at three", async () => {
+    const urgentHomework = buildHomework(1, {
+      subject: "语文",
+      content: "先交作文",
+      dueAt: "2026-03-12T09:00:00+08:00",
+      needsSubmission: true
+    });
+    const overdueHomework = buildHomework(2, {
+      subject: "物理",
+      content: "补交实验",
+      dueAt: "2026-03-12T08:30:00+08:00",
+      isOverdue: true
+    });
+    const pendingHomework = buildHomework(3, {
+      subject: "数学",
+      content: "数学卷",
+      dueAt: "2026-03-12T10:00:00+08:00"
+    });
+    const hiddenPendingHomework = buildHomework(4, {
+      subject: "英语",
+      content: "英语背诵",
+      dueAt: "2026-03-12T11:30:00+08:00"
+    });
+    const submittedHomework = buildHomework(5, {
+      subject: "化学",
+      content: "已完成实验",
+      dueAt: "2026-03-12T12:30:00+08:00",
+      submitted: true,
+      submittedAt: "2026-03-12T12:00:00+08:00"
+    });
+
+    vi.mocked(api.listHomeworks).mockImplementation(async (view) => {
+      if (view === "today") {
+        return [pendingHomework, submittedHomework, hiddenPendingHomework, urgentHomework, overdueHomework];
+      }
+      return [submittedHomework, urgentHomework, pendingHomework, overdueHomework, hiddenPendingHomework];
+    });
+
+    render(<App />);
+
+    const summaryPanel = screen.getByLabelText("作业概览");
+
+    await waitFor(() => {
+      expect(within(summaryPanel).getByLabelText("今日总数 5")).toBeInTheDocument();
+    });
+
+    expect(within(summaryPanel).getByLabelText("待提交 4")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("需立即处理 2")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("记录总数 5")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("补交实验")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("先交作文")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("数学卷")).toBeInTheDocument();
+    expect(within(summaryPanel).queryByText("英语背诵")).not.toBeInTheDocument();
   });
 
   it("limits homework subjects to supported choices in the modal", async () => {
@@ -97,9 +155,11 @@ describe("App", () => {
     });
 
     render(<App />);
+    const listPanel = screen.getByText("今日作业").closest(".list-panel");
 
     await waitFor(() => {
-      expect(screen.getByText("仅显示最近 10 条，剩余 2 条在记录中")).toBeInTheDocument();
+      expect(listPanel).not.toBeNull();
+      expect(within(listPanel as HTMLElement).getByText("仅显示最近 10 条，剩余 2 条在记录中")).toBeInTheDocument();
     });
     expect(screen.getAllByRole("button", { name: "提交" })).toHaveLength(10);
   });
