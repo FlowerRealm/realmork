@@ -27,6 +27,13 @@
           #e7ebf0;
       }
 
+      body.is-error {
+        background:
+          radial-gradient(circle at top left, rgba(255, 241, 241, 0.82), transparent 42%),
+          radial-gradient(circle at bottom right, rgba(232, 182, 182, 0.48), transparent 40%),
+          #f1e8e7;
+      }
+
       .boot-shell {
         display: grid;
         place-items: center;
@@ -103,6 +110,34 @@
         box-shadow: 0 12px 28px rgba(70, 82, 97, 0.2);
       }
 
+      body.is-error .boot-loader::before {
+        background: rgba(255, 234, 234, 0.78);
+        animation-duration: 1.8s;
+      }
+
+      body.is-error .boot-loader::after {
+        background: rgba(210, 129, 129, 0.5);
+        animation-duration: 1.8s;
+      }
+
+      body.is-error .boot-ring {
+        border-color: rgba(165, 93, 93, 0.34);
+      }
+
+      body.is-error .boot-ring::before {
+        background: rgba(124, 56, 56, 0.82);
+        box-shadow: 0 0 0 6px rgba(210, 129, 129, 0.16);
+      }
+
+      body.is-error .boot-ring-a,
+      body.is-error .boot-ring-b {
+        animation-play-state: paused;
+      }
+
+      body.is-error .boot-core {
+        background: linear-gradient(180deg, rgba(132, 73, 73, 0.88), rgba(187, 112, 112, 0.74));
+      }
+
       @keyframes pulse {
         0%,
         100% {
@@ -145,5 +180,11 @@
         <span class="boot-core"></span>
       </div>
     </main>
+    <script>
+      const state = new URLSearchParams(window.location.search).get("state");
+      if (state === "error") {
+        document.body.classList.add("is-error");
+      }
+    </script>
   </body>
 </html>

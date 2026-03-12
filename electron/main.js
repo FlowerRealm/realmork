@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKEND_STATE_EVENT = "realmork:backend-state";
 const DEV_RENDERER_URL = process.env.ELECTRON_RENDERER_URL ?? "";
+const DEV_RENDERER_WAIT_TIMEOUT_MS = 15000;
 const hasRendererDevServer = DEV_RENDERER_URL !== "";
 const useDevelopmentBackend = process.env.NODE_ENV === "development";
 
@@ -224,6 +225,8 @@ function ensureBackendStarted() {
 }
 
 async function waitForRenderer(window) {
+  const deadline = Date.now() + DEV_RENDERER_WAIT_TIMEOUT_MS;
+
   while (!window.isDestroyed()) {
     try {
       const response = await fetch(DEV_RENDERER_URL, {
@@ -236,8 +239,18 @@ async function waitForRenderer(window) {
       // Renderer dev server is still warming up.
     }
 
+    if (Date.now() >= deadline) {
+      throw new Error(`renderer dev server timed out after ${DEV_RENDERER_WAIT_TIMEOUT_MS}ms`);
+    }
+
     await delay(200);
   }
+}
+
+async function loadBootPage(window, state = "loading") {
+  await window.loadFile(path.join(__dirname, "boot.html"), {
+    query: { state }
+  });
 }
 
 async function attachDevelopmentRenderer(window) {
@@ -252,6 +265,7 @@ async function attachDevelopmentRenderer(window) {
     }
   } catch (error) {
     if (!window.isDestroyed()) {
+      await loadBootPage(window, "error");
       console.error("failed to attach development renderer", error);
     }
   }
@@ -259,7 +273,7 @@ async function attachDevelopmentRenderer(window) {
 
 async function loadInitialPage(window) {
   if (hasRendererDevServer) {
-    await window.loadFile(path.join(__dirname, "boot.html"));
+    await loadBootPage(window);
     void attachDevelopmentRenderer(window);
     return;
   }
