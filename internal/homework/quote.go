@@ -148,8 +148,8 @@ func (c *DailyQuoteCache) Save(entry dailyQuoteCacheEntry) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.entry = entry
 	if c.path == "" {
+		c.entry = entry
 		return nil
 	}
 
@@ -176,6 +176,7 @@ func (c *DailyQuoteCache) Save(entry dailyQuoteCacheEntry) error {
 		return fmt.Errorf("replace quote cache: %w", err)
 	}
 
+	c.entry = entry
 	return nil
 }
 

@@ -217,6 +217,45 @@ func TestNewDailyQuoteCacheIgnoresLegacyEnglishCache(t *testing.T) {
 	}
 }
 
+func TestDailyQuoteCacheSaveKeepsPreviousEntryWhenPersistFails(t *testing.T) {
+	t.Parallel()
+
+	cachePath := filepath.Join(t.TempDir(), "daily-quote.json")
+	cache, err := NewDailyQuoteCache(cachePath)
+	if err != nil {
+		t.Fatalf("NewDailyQuoteCache() error = %v", err)
+	}
+
+	initial := dailyQuoteCacheEntry{
+		Text:      "学而时习之，不亦说乎。",
+		Author:    "孔子",
+		QuoteDate: "2026-03-11",
+	}
+	if err := cache.Save(initial); err != nil {
+		t.Fatalf("Save() initial error = %v", err)
+	}
+
+	if err := os.Remove(cachePath); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+	if err := os.Mkdir(cachePath, 0o755); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+
+	next := dailyQuoteCacheEntry{
+		Text:      "苟日新，日日新，又日新。",
+		Author:    "《礼记》",
+		QuoteDate: "2026-03-12",
+	}
+	if err := cache.Save(next); err == nil {
+		t.Fatal("Save() should fail when replacing cache path directory")
+	}
+
+	if cached := cache.Get(); cached != initial {
+		t.Fatalf("cache entry mutated on failed save, got %+v want %+v", cached, initial)
+	}
+}
+
 func TestALAPIFetchFuncParsesSuccessfulResponse(t *testing.T) {
 	t.Parallel()
 

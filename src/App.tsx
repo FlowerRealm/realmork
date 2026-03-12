@@ -9,6 +9,7 @@ import { HomeworkModal } from "./components/HomeworkModal";
 
 const TODAY_CAPACITY = 10;
 const SUMMARY_ITEM_LIMIT = 3;
+const REFRESH_INTERVAL_MS = 30_000;
 
 function getHomeworkFocusLabel(homework: Homework) {
   if (homework.needsSubmission) {
@@ -66,7 +67,7 @@ export default function App() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       void loadAll();
-    }, 30000);
+    }, REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
   }, []);
@@ -95,7 +96,16 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    let timer = 0;
+    let midnightTimer = 0;
+    let retryTimer = 0;
+    let loadingQuote = false;
+
+    function clearRetryTimer() {
+      if (retryTimer !== 0) {
+        window.clearTimeout(retryTimer);
+        retryTimer = 0;
+      }
+    }
 
     async function loadQuote() {
       try {
@@ -103,17 +113,42 @@ export default function App() {
         if (!cancelled) {
           setDailyQuote(nextQuote);
         }
+        return true;
       } catch {
         if (!cancelled) {
           setDailyQuote(null);
         }
+        return false;
+      }
+    }
+
+    function scheduleRetry() {
+      clearRetryTimer();
+      retryTimer = window.setTimeout(() => {
+        void loadQuoteWithRetry();
+      }, REFRESH_INTERVAL_MS);
+    }
+
+    async function loadQuoteWithRetry() {
+      if (loadingQuote) {
+        return;
+      }
+
+      loadingQuote = true;
+      clearRetryTimer();
+
+      const loaded = await loadQuote();
+      loadingQuote = false;
+
+      if (!cancelled && !loaded) {
+        scheduleRetry();
       }
     }
 
     function scheduleNextRefresh() {
       const delay = millisecondsUntilNextMidnight(new Date());
-      timer = window.setTimeout(() => {
-        void loadQuote().finally(() => {
+      midnightTimer = window.setTimeout(() => {
+        void loadQuoteWithRetry().finally(() => {
           if (!cancelled) {
             scheduleNextRefresh();
           }
@@ -121,12 +156,13 @@ export default function App() {
       }, delay);
     }
 
-    void loadQuote();
+    void loadQuoteWithRetry();
     scheduleNextRefresh();
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      clearRetryTimer();
+      window.clearTimeout(midnightTimer);
     };
   }, []);
 

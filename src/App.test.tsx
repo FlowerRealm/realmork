@@ -169,6 +169,36 @@ describe("App", () => {
     expect(api.listHomeworks).toHaveBeenCalledTimes(2);
   });
 
+  it("retries loading the daily quote on the regular refresh interval after an initial failure", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote)
+      .mockRejectedValueOnce(new Error("quote failed"))
+      .mockResolvedValueOnce(
+        buildDailyQuote({
+          text: "千里之行，始于足下。",
+          author: "老子"
+        })
+      );
+
+    await act(async () => {
+      render(<App />);
+      await Promise.resolve();
+    });
+
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("“千里之行，始于足下。”")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("“千里之行，始于足下。”")).toBeInTheDocument();
+    expect(screen.getByText("- 老子")).toBeInTheDocument();
+  });
+
   it("shows summary metrics and caps recent pending items at three", async () => {
     const urgentHomework = buildHomework(1, {
       subject: "语文",
