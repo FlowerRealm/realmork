@@ -145,6 +145,40 @@ func TestDailyQuoteServiceFallsBackToPreviousCacheWhenFetchFails(t *testing.T) {
 	}
 }
 
+func TestDailyQuoteServiceUsesLibraryInsteadOfStaleCacheWhenNoOnlineFetchConfigured(t *testing.T) {
+	t.Parallel()
+
+	cache, err := NewDailyQuoteCache("")
+	if err != nil {
+		t.Fatalf("NewDailyQuoteCache() error = %v", err)
+	}
+	if err := cache.Save(dailyQuoteCacheEntry{
+		Text:      "昨日之深渊，今日之浅谈。",
+		Author:    "尼采",
+		QuoteDate: "2026-03-11",
+	}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	service := NewDailyQuoteService(cache, func() time.Time {
+		return time.Date(2026, 3, 12, 9, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	}, "", nil)
+
+	quote, err := service.Get(context.Background())
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if quote.Source != "library" {
+		t.Fatalf("Get() source = %q, want library", quote.Source)
+	}
+	if quote.QuoteDate != "2026-03-12" {
+		t.Fatalf("Get() quoteDate = %q, want today", quote.QuoteDate)
+	}
+	if quote.Text == "昨日之深渊，今日之浅谈。" {
+		t.Fatalf("Get() should not reuse stale cache, got %+v", quote)
+	}
+}
+
 func TestDailyQuoteServiceRejectsEnglishOnlineQuote(t *testing.T) {
 	t.Parallel()
 

@@ -283,15 +283,15 @@ func (s *DailyQuoteService) Get(ctx context.Context) (DailyQuote, error) {
 				Source:    "online",
 			}, nil
 		}
-	}
 
-	if isValidQuote(cached.Text, cached.Author) {
-		return DailyQuote{
-			Text:      cached.Text,
-			Author:    cached.Author,
-			QuoteDate: cached.QuoteDate,
-			Source:    "cache",
-		}, nil
+		if isValidQuote(cached.Text, cached.Author) {
+			return DailyQuote{
+				Text:      cached.Text,
+				Author:    cached.Author,
+				QuoteDate: cached.QuoteDate,
+				Source:    "cache",
+			}, nil
+		}
 	}
 
 	selected := libraryQuoteForDate(today, s.library)
