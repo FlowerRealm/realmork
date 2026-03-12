@@ -168,6 +168,38 @@ describe("App", () => {
     expect(api.listHomeworks).toHaveBeenCalledWith("records");
   });
 
+  it("does not miss a ready event between initial snapshot and subscription", async () => {
+    const readyState: BackendState = {
+      status: "ready",
+      apiBaseUrl: "http://127.0.0.1:3017",
+      apiToken: "test-token",
+      error: ""
+    };
+
+    mockedBackend.__setBackendState({
+      status: "starting",
+      apiBaseUrl: "",
+      apiToken: "",
+      error: ""
+    });
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(backend.getBackendState).mockImplementationOnce(async () => {
+      mockedBackend.__setBackendState(readyState);
+      return {
+        status: "starting",
+        apiBaseUrl: "",
+        apiToken: "",
+        error: ""
+      };
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(api.listHomeworks).toHaveBeenCalledWith("records");
+    });
+  });
+
   it("retries backend startup from the blocking error state", async () => {
     mockedBackend.__setBackendState({
       status: "error",

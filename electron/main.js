@@ -69,15 +69,23 @@ async function stopBackendProcess() {
   }
 
   await new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      child.off("exit", handleExit);
-      resolve();
-    }, 5000);
+    let forceKillTimeout;
 
     function handleExit() {
       clearTimeout(timeout);
+      if (forceKillTimeout) {
+        clearTimeout(forceKillTimeout);
+      }
       resolve();
     }
+
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      forceKillTimeout = setTimeout(() => {
+        child.off("exit", handleExit);
+        resolve();
+      }, 1000);
+    }, 5000);
 
     child.once("exit", handleExit);
     child.kill();

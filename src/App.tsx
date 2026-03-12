@@ -40,6 +40,14 @@ type RefreshRecordsOptions = {
   backendState?: BackendState;
 };
 
+function resolveBackendState(current: BackendState, next: BackendState): BackendState {
+  if (next.status === "starting" && current.status !== "starting") {
+    return current;
+  }
+
+  return next;
+}
+
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [records, setRecords] = useState<Homework[]>([]);
@@ -105,16 +113,25 @@ export default function App() {
   useEffect(() => {
     let subscribed = true;
 
+    function applyBackendState(nextState: BackendState) {
+      if (!subscribed) {
+        return;
+      }
+
+      setBackendState((current) => resolveBackendState(current, nextState));
+      if (nextState.status === "error") {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+
+    const unsubscribe = subscribeBackendState((state) => {
+      applyBackendState(state);
+    });
+
     void getBackendState()
       .then((state) => {
-        if (!subscribed) {
-          return;
-        }
-
-        setBackendState(state);
-        if (state.status === "error") {
-          setLoading(false);
-        }
+        applyBackendState(state);
       })
       .catch((backendError) => {
         if (!subscribed) {
@@ -128,18 +145,6 @@ export default function App() {
         });
         setLoading(false);
       });
-
-    const unsubscribe = subscribeBackendState((state) => {
-      if (!subscribed) {
-        return;
-      }
-
-      setBackendState(state);
-      if (state.status === "error") {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    });
 
     return () => {
       subscribed = false;
