@@ -6,6 +6,7 @@ import type { Homework } from "./lib/types";
 vi.mock("./lib/api", () => ({
   createHomework: vi.fn(),
   deleteHomework: vi.fn(),
+  getDailyQuote: vi.fn(),
   listHomeworks: vi.fn(),
   submitHomework: vi.fn(),
   unsubmitHomework: vi.fn(),
@@ -14,6 +15,16 @@ vi.mock("./lib/api", () => ({
 
 const api = await import("./lib/api");
 const subjectCycle = ["语文", "数学", "英语", "物理", "化学", "生物"] as const;
+
+function buildDailyQuote(overrides: Partial<import("./lib/types").DailyQuote> = {}) {
+  return {
+    text: "学而不思则罔，思而不学则殆。",
+    author: "孔子",
+    quoteDate: "2026-03-12",
+    source: "online" as const,
+    ...overrides
+  };
+}
 
 function buildHomework(index: number, overrides: Partial<Homework> = {}): Homework {
   const hour = `${(index % 12) + 8}`.padStart(2, "0");
@@ -36,22 +47,30 @@ function buildHomework(index: number, overrides: Partial<Homework> = {}): Homewo
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.getDailyQuote).mockResolvedValue(buildDailyQuote());
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("shows floating date topbar while keeping main actions", async () => {
+  it("shows floating date and daily quote in the topbar while keeping main actions", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
 
+    let renderResult: ReturnType<typeof render> | undefined;
     await act(async () => {
-      render(<App />);
+      renderResult = render(<App />);
+      await Promise.resolve();
     });
 
+    expect(renderResult?.container.querySelector(".topbar-line")).not.toBeNull();
+    expect(renderResult?.container.querySelector(".topbar-quote-group")).not.toBeNull();
+    expect(renderResult?.container.querySelector(".topbar-quote-line")).not.toBeNull();
     expect(screen.getByText("3月12日 周四")).toBeInTheDocument();
+    expect(screen.getByText("“学而不思则罔，思而不学则殆。”")).toBeInTheDocument();
+    expect(screen.getByText("- 孔子")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "记录" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增作业" })).toBeInTheDocument();
@@ -64,7 +83,9 @@ describe("App", () => {
     const { container } = render(<App />);
 
     expect(container.querySelector(".page-header")).not.toBeNull();
+    expect(container.querySelector(".page-header-inner")).not.toBeNull();
     expect(container.querySelector(".floating-topbar")).not.toBeNull();
+    expect(container.querySelector(".topbar-line")).not.toBeNull();
     expect(container.querySelector(".dashboard-layout")).not.toBeNull();
     expect(container.querySelector(".list-panel")).not.toBeNull();
     expect(container.querySelector(".summary-panel")).not.toBeNull();
@@ -73,6 +94,109 @@ describe("App", () => {
 
     expect(container.querySelector(".modal-backdrop")).not.toBeNull();
     expect(container.querySelector(".modal-card")).not.toBeNull();
+  });
+
+  it("keeps main actions available while daily quote is still loading", async () => {
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote).mockImplementation(
+      () =>
+        new Promise(() => {
+          // Keep the quote request pending to verify the rest of the page still works.
+        })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("按截止时间从近到远")).toBeInTheDocument();
+    expect(screen.getByLabelText("当前日期与每日一言")).toBeInTheDocument();
+    expect(screen.queryByText("“学而不思则罔，思而不学则殆。”")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "记录" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新增作业" })).toBeInTheDocument();
+  });
+
+  it("keeps the page usable when daily quote loading fails", async () => {
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote).mockRejectedValue(new Error("quote failed"));
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByLabelText("当前日期与每日一言")).toBeInTheDocument();
+    expect(screen.queryByText("- 孔子")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "新增作业" }));
+    expect(screen.getByRole("button", { name: "保存作业" })).toBeInTheDocument();
+  });
+
+  it("refreshes the daily quote after midnight without triggering homework polling", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T23:59:50+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote)
+      .mockResolvedValueOnce(
+        buildDailyQuote({
+          text: "学而不思则罔，思而不学则殆。",
+          quoteDate: "2026-03-12"
+        })
+      )
+      .mockResolvedValueOnce(
+        buildDailyQuote({
+          text: "苟日新，日日新，又日新。",
+          author: "《礼记》",
+          quoteDate: "2026-03-13"
+        })
+      );
+
+    await act(async () => {
+      render(<App />);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("“学而不思则罔，思而不学则殆。”")).toBeInTheDocument();
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(1);
+    expect(api.listHomeworks).toHaveBeenCalledTimes(2);
+
+    vi.setSystemTime(new Date("2026-03-13T00:00:01+08:00"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11_000);
+    });
+
+    expect(screen.getByText("3月13日 周五")).toBeInTheDocument();
+    expect(screen.getByText("“苟日新，日日新，又日新。”")).toBeInTheDocument();
+    expect(screen.getByText("- 《礼记》")).toBeInTheDocument();
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
+    expect(api.listHomeworks).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries loading the daily quote on the regular refresh interval after an initial failure", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote)
+      .mockRejectedValueOnce(new Error("quote failed"))
+      .mockResolvedValueOnce(
+        buildDailyQuote({
+          text: "千里之行，始于足下。",
+          author: "老子"
+        })
+      );
+
+    await act(async () => {
+      render(<App />);
+      await Promise.resolve();
+    });
+
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("“千里之行，始于足下。”")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("“千里之行，始于足下。”")).toBeInTheDocument();
+    expect(screen.getByText("- 老子")).toBeInTheDocument();
   });
 
   it("shows summary metrics and caps recent pending items at three", async () => {

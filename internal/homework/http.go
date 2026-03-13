@@ -13,25 +13,28 @@ import (
 type Clock func() time.Time
 
 type API struct {
-	store *Store
-	token string
-	now   Clock
+	store  *Store
+	quotes DailyQuoteProvider
+	token  string
+	now    Clock
 }
 
-func NewAPI(store *Store, token string, now Clock) *API {
+func NewAPI(store *Store, token string, now Clock, quotes DailyQuoteProvider) *API {
 	if now == nil {
 		now = time.Now
 	}
 	return &API{
-		store: store,
-		token: token,
-		now:   now,
+		store:  store,
+		quotes: quotes,
+		token:  token,
+		now:    now,
 	}
 }
 
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", a.handleHealth)
+	mux.HandleFunc("/api/daily-quote", a.handleDailyQuote)
 	mux.HandleFunc("/api/homeworks", a.handleHomeworks)
 	mux.HandleFunc("/api/homeworks/", a.handleHomeworkAction)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +61,24 @@ func (a *API) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (a *API) handleDailyQuote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if a.quotes == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "daily quote unavailable"})
+		return
+	}
+
+	item, err := a.quotes.Get(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (a *API) handleHomeworks(w http.ResponseWriter, r *http.Request) {

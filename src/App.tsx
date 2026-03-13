@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import "./styles.css";
-import { createHomework, deleteHomework, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
-import type { Homework, HomeworkPayload, ViewMode } from "./lib/types";
-import { formatDateTime, formatMonthDayWeekday } from "./lib/format";
+import { createHomework, deleteHomework, getDailyQuote, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
+import type { DailyQuote, Homework, HomeworkPayload, ViewMode } from "./lib/types";
+import { formatDateTime } from "./lib/format";
 import { HomeworkCard } from "./components/HomeworkCard";
+import { FloatingTopbar } from "./components/FloatingTopbar";
 import { HomeworkModal } from "./components/HomeworkModal";
 
 const TODAY_CAPACITY = 10;
 const SUMMARY_ITEM_LIMIT = 3;
+const REFRESH_INTERVAL_MS = 30_000;
 
 function getHomeworkFocusLabel(homework: Homework) {
   if (homework.needsSubmission) {
@@ -21,10 +23,23 @@ function getHomeworkFocusLabel(homework: Homework) {
   return "待办";
 }
 
+function millisecondsUntilNextMidnight(now: Date): number {
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 0);
+  return Math.max(nextMidnight.getTime() - now.getTime(), 1000);
+}
+
+function millisecondsUntilNextMinute(now: Date): number {
+  const nextMinute = new Date(now);
+  nextMinute.setSeconds(60, 0);
+  return Math.max(nextMinute.getTime() - now.getTime(), 250);
+}
+
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [todayHomeworks, setTodayHomeworks] = useState<Homework[]>([]);
   const [recordHomeworks, setRecordHomeworks] = useState<Homework[]>([]);
+  const [dailyQuote, setDailyQuote] = useState<DailyQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,17 +67,103 @@ export default function App() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       void loadAll();
-    }, 30000);
+    }, REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
+    let cancelled = false;
+    let timer = 0;
 
-    return () => window.clearInterval(timer);
+    function scheduleClockTick() {
+      const delay = millisecondsUntilNextMinute(new Date());
+      timer = window.setTimeout(() => {
+        setCurrentTime(new Date());
+        if (!cancelled) {
+          scheduleClockTick();
+        }
+      }, delay);
+    }
+
+    scheduleClockTick();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let midnightTimer = 0;
+    let retryTimer = 0;
+    let loadingQuote = false;
+
+    function clearRetryTimer() {
+      if (retryTimer !== 0) {
+        window.clearTimeout(retryTimer);
+        retryTimer = 0;
+      }
+    }
+
+    async function loadQuote() {
+      try {
+        const nextQuote = await getDailyQuote();
+        if (!cancelled) {
+          setDailyQuote(nextQuote);
+        }
+        return true;
+      } catch {
+        if (!cancelled) {
+          setDailyQuote(null);
+        }
+        return false;
+      }
+    }
+
+    function scheduleRetry() {
+      clearRetryTimer();
+      retryTimer = window.setTimeout(() => {
+        void loadQuoteWithRetry();
+      }, REFRESH_INTERVAL_MS);
+    }
+
+    async function loadQuoteWithRetry() {
+      if (loadingQuote) {
+        return;
+      }
+
+      loadingQuote = true;
+      clearRetryTimer();
+
+      const loaded = await loadQuote();
+      loadingQuote = false;
+
+      if (!cancelled && !loaded) {
+        scheduleRetry();
+      }
+    }
+
+    function scheduleNextRefresh() {
+      const delay = millisecondsUntilNextMidnight(new Date());
+      midnightTimer = window.setTimeout(() => {
+        void loadQuoteWithRetry().finally(() => {
+          if (!cancelled) {
+            scheduleNextRefresh();
+          }
+        });
+      }, delay);
+    }
+
+    void loadQuoteWithRetry();
+    scheduleNextRefresh();
+
+    return () => {
+      cancelled = true;
+      clearRetryTimer();
+      window.clearTimeout(midnightTimer);
+    };
   }, []);
 
   const visibleTodayHomeworks = useMemo(() => todayHomeworks.slice(0, TODAY_CAPACITY), [todayHomeworks]);
@@ -71,7 +172,6 @@ export default function App() {
   const currentItems = isTodayView ? visibleTodayHomeworks : recordHomeworks;
   const listTitle = isTodayView ? "今日作业" : "全部记录";
   const listMeta = isTodayView ? (hiddenCount > 0 ? `仅显示最近 10 条，剩余 ${hiddenCount} 条在记录中` : "按截止时间从近到远") : "按截止时间倒序";
-  const topbarDate = formatMonthDayWeekday(currentTime);
   const todayPendingCount = todayHomeworks.filter((homework) => !homework.submitted).length;
   const attentionCount = todayHomeworks.filter((homework) => !homework.submitted && (homework.needsSubmission || homework.isOverdue)).length;
   const summaryCards = [
@@ -143,11 +243,7 @@ export default function App() {
     <div className="shell">
       <div className="page-header">
         <div className="page-header-inner">
-          <header className="floating-topbar" aria-label="当前日期">
-            <time className="topbar-date" dateTime={currentTime.toISOString()}>
-              {topbarDate}
-            </time>
-          </header>
+          <FloatingTopbar currentTime={currentTime} dailyQuote={dailyQuote} />
         </div>
       </div>
 

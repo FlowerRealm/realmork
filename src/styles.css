@@ -135,6 +135,7 @@ button {
 
 .floating-topbar {
   position: relative;
+  width: 100%;
   min-width: 288px;
   max-width: 100%;
   padding: 12px 24px;
@@ -162,15 +163,51 @@ button {
   box-shadow: inset 0 0 0 1px rgba(255, 251, 245, 0.22);
 }
 
-.topbar-date {
+.topbar-line {
   position: relative;
   z-index: 1;
-  display: block;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+}
+
+.topbar-date {
+  flex: 0 0 auto;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text);
+}
+
+.topbar-quote-group {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.topbar-quote-line {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-quote {
+  margin-right: 8px;
+}
+
+.topbar-quote-author {
+  color: var(--text-soft);
+  font-size: 12px;
 }
 
 .list-panel {
@@ -740,6 +777,19 @@ button {
 @media (max-width: 560px) {
   .floating-topbar {
     width: 100%;
+    min-width: 0;
+    border-radius: 28px;
+  }
+
+  .topbar-line {
+    gap: 12px;
+  }
+
+  .topbar-date {
+    flex: 0 0 auto;
+  }
+
+  .topbar-quote-group {
     min-width: 0;
   }
 

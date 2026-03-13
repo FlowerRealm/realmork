@@ -19,10 +19,11 @@ import (
 
 func main() {
 	var (
-		dataDir = flag.String("data-dir", "", "directory for persistent data")
-		token   = flag.String("token", "", "shared secret for API access")
-		host    = flag.String("host", "127.0.0.1", "http bind host")
-		port    = flag.Int("port", 0, "http bind port")
+		dataDir         = flag.String("data-dir", "", "directory for persistent data")
+		token           = flag.String("token", "", "shared secret for API access")
+		host            = flag.String("host", "127.0.0.1", "http bind host")
+		port            = flag.Int("port", 0, "http bind port")
+		quoteALAPIToken = flag.String("quote-alapi-token", "", "ALAPI token for fetching Chinese daily quotes")
 	)
 	flag.Parse()
 
@@ -36,7 +37,13 @@ func main() {
 		log.Fatalf("init store: %v", err)
 	}
 
-	api := homework.NewAPI(store, *token, time.Now)
+	quoteCache, err := homework.NewDailyQuoteCache(filepath.Join(*dataDir, "daily-quote.json"))
+	if err != nil {
+		log.Fatalf("init quote cache: %v", err)
+	}
+
+	quoteService := homework.NewDailyQuoteService(quoteCache, time.Now, *quoteALAPIToken, nil)
+	api := homework.NewAPI(store, *token, time.Now, quoteService)
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", *host, *port),
 		Handler:           api.Handler(),
