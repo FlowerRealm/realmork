@@ -1,5 +1,5 @@
 import { waitForBackend } from "./backend";
-import type { Homework, HomeworkPayload, ViewMode } from "./types";
+import type { DailyQuote, Homework, HomeworkPayload, ViewMode } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const backend = await waitForBackend();
@@ -39,6 +39,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listHomeworks(view: ViewMode): Promise<Homework[]> {
   return request<Homework[]>(`/api/homeworks?view=${view}`);
+}
+
+export function getDailyQuote(): Promise<DailyQuote> {
+  return request<DailyQuote>("/api/daily-quote");
 }
 
 export function createHomework(payload: HomeworkPayload): Promise<Homework> {

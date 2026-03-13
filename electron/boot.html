@@ -4,186 +4,142 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Realmork</title>
+    <link rel="stylesheet" href="../src/theme.css" />
     <style>
-      :root {
-        color-scheme: light;
-        font-family: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", sans-serif;
-        background: #e7ebf0;
-        color: #1f2630;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
       body {
-        margin: 0;
-        min-height: 100vh;
         display: grid;
         place-items: center;
+        padding: 28px;
         background:
-          radial-gradient(circle at top left, rgba(255, 255, 255, 0.75), transparent 42%),
-          radial-gradient(circle at bottom right, rgba(195, 207, 223, 0.56), transparent 40%),
-          #e7ebf0;
+          radial-gradient(circle at top left, rgba(255, 252, 247, 0.86), transparent 40%),
+          radial-gradient(circle at bottom right, rgba(226, 199, 168, 0.28), transparent 42%),
+          linear-gradient(180deg, rgba(252, 247, 240, 0.92), rgba(247, 241, 233, 0.98));
       }
 
       body.is-error {
+        --loader-aura-primary: rgba(248, 224, 216, 0.88);
+        --loader-aura-secondary: rgba(195, 132, 117, 0.24);
+        --loader-sheet-back: rgba(250, 236, 231, 0.8);
+        --loader-sheet-middle: rgba(255, 244, 240, 0.92);
+        --loader-sheet-front: rgba(255, 249, 246, 0.98);
+        --loader-sheet-border: rgba(132, 92, 87, 0.18);
+        --loader-line: rgba(151, 112, 106, 0.24);
+        --loader-line-strong: rgba(132, 92, 87, 0.4);
+        --loader-seal-start: #9f685f;
+        --loader-seal-end: #7f554f;
+        --loader-progress-track: rgba(239, 224, 219, 0.92);
+        --loader-progress-start: rgba(169, 111, 97, 0.9);
+        --loader-progress-mid: rgba(198, 143, 127, 0.8);
+        --loader-progress-end: rgba(124, 86, 79, 0.88);
+        --loader-panel-background: rgba(251, 242, 238, 0.84);
+        --loader-panel-border: rgba(132, 92, 87, 0.14);
+        --loader-copy: #845c57;
+        --loader-caption: #956d66;
         background:
-          radial-gradient(circle at top left, rgba(255, 241, 241, 0.82), transparent 42%),
-          radial-gradient(circle at bottom right, rgba(232, 182, 182, 0.48), transparent 40%),
-          #f1e8e7;
+          radial-gradient(circle at top left, rgba(255, 247, 243, 0.92), transparent 40%),
+          radial-gradient(circle at bottom right, rgba(218, 164, 150, 0.22), transparent 42%),
+          linear-gradient(180deg, rgba(249, 240, 236, 0.94), rgba(244, 233, 229, 0.98));
       }
 
       .boot-shell {
+        width: min(100%, 360px);
         display: grid;
-        place-items: center;
       }
 
-      .boot-loader {
+      .boot-panel {
         position: relative;
-        width: 176px;
-        height: 176px;
         display: grid;
-        place-items: center;
+        justify-items: center;
+        gap: 12px;
+        padding: 30px 28px 26px;
+        border: 1px solid var(--loader-panel-border);
+        border-radius: 32px;
+        background: var(--loader-panel-background);
+        box-shadow: var(--paper-shadow-ambient), inset 0 1px 0 var(--paper-highlight);
+        overflow: hidden;
       }
 
-      .boot-loader::before,
-      .boot-loader::after,
-      .boot-ring,
-      .boot-core {
-        position: absolute;
-        border-radius: 999px;
-      }
-
-      .boot-loader::before,
-      .boot-loader::after {
+      .boot-panel::before {
         content: "";
-        filter: blur(16px);
-      }
-
-      .boot-loader::before {
-        width: 120px;
-        height: 120px;
-        background: rgba(255, 255, 255, 0.68);
-        animation: pulse 2.4s ease-in-out infinite;
-      }
-
-      .boot-loader::after {
-        width: 70px;
-        height: 70px;
-        background: rgba(195, 207, 223, 0.78);
-        animation: pulse 2.4s ease-in-out infinite 0.28s;
-      }
-
-      .boot-ring {
+        position: absolute;
         inset: 0;
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+        border-radius: inherit;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 30%),
+          radial-gradient(circle at top, rgba(255, 251, 245, 0.54), transparent 46%);
+        pointer-events: none;
       }
 
-      .boot-ring::before {
-        content: "";
-        position: absolute;
-        top: -5px;
-        left: calc(50% - 5px);
-        width: 10px;
-        height: 10px;
-        border-radius: 999px;
-        background: rgba(33, 41, 52, 0.74);
-        box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18);
+      .boot-panel > * {
+        position: relative;
+        z-index: 1;
       }
 
-      .boot-ring-a {
-        animation: spin 2.8s linear infinite;
+      .boot-title,
+      .boot-copy {
+        margin: 0;
+        text-align: center;
       }
 
-      .boot-ring-b {
-        inset: 20px;
-        border-color: rgba(255, 255, 255, 0.3);
-        animation: spin-reverse 2.1s linear infinite;
+      .boot-title {
+        color: var(--text);
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
       }
 
-      .boot-core {
-        width: 36px;
-        height: 36px;
-        background: linear-gradient(180deg, rgba(33, 41, 52, 0.84), rgba(92, 103, 118, 0.68));
-        box-shadow: 0 12px 28px rgba(70, 82, 97, 0.2);
+      .boot-copy {
+        max-width: 18em;
+        color: var(--loader-caption);
+        font-size: 13px;
+        line-height: 1.5;
       }
 
-      body.is-error .boot-loader::before {
-        background: rgba(255, 234, 234, 0.78);
-        animation-duration: 1.8s;
+      body.is-error .boot-title {
+        color: var(--warn);
       }
 
-      body.is-error .boot-loader::after {
-        background: rgba(210, 129, 129, 0.5);
-        animation-duration: 1.8s;
-      }
-
-      body.is-error .boot-ring {
-        border-color: rgba(165, 93, 93, 0.34);
-      }
-
-      body.is-error .boot-ring::before {
-        background: rgba(124, 56, 56, 0.82);
-        box-shadow: 0 0 0 6px rgba(210, 129, 129, 0.16);
-      }
-
-      body.is-error .boot-ring-a,
-      body.is-error .boot-ring-b {
+      body.is-error .warm-loader-aura,
+      body.is-error .warm-loader-stack,
+      body.is-error .warm-loader-sheet-front::after,
+      body.is-error .warm-loader-progress-bar,
+      body.is-error .warm-loader-progress-bar::after {
         animation-play-state: paused;
-      }
-
-      body.is-error .boot-core {
-        background: linear-gradient(180deg, rgba(132, 73, 73, 0.88), rgba(187, 112, 112, 0.74));
-      }
-
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 0.38;
-          transform: scale(0.88);
-        }
-
-        50% {
-          opacity: 0.82;
-          transform: scale(1);
-        }
-      }
-
-      @keyframes spin {
-        from {
-          transform: rotate(0deg);
-        }
-
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      @keyframes spin-reverse {
-        from {
-          transform: rotate(360deg);
-        }
-
-        to {
-          transform: rotate(0deg);
-        }
       }
     </style>
   </head>
   <body>
     <main class="boot-shell">
-      <div class="boot-loader" aria-hidden="true">
-        <span class="boot-ring boot-ring-a"></span>
-        <span class="boot-ring boot-ring-b"></span>
-        <span class="boot-core"></span>
-      </div>
+      <section class="boot-panel" role="status" aria-live="polite" aria-label="Realmork 正在准备中">
+        <div class="warm-loader" aria-hidden="true">
+          <span class="warm-loader-aura warm-loader-aura-primary"></span>
+          <span class="warm-loader-aura warm-loader-aura-secondary"></span>
+          <div class="warm-loader-stack">
+            <span class="warm-loader-sheet warm-loader-sheet-back"></span>
+            <span class="warm-loader-sheet warm-loader-sheet-middle"></span>
+            <div class="warm-loader-sheet warm-loader-sheet-front">
+              <span class="warm-loader-seal"></span>
+              <span class="warm-loader-line warm-loader-line-title"></span>
+              <span class="warm-loader-line warm-loader-line-meta"></span>
+              <span class="warm-loader-progress">
+                <span class="warm-loader-progress-bar"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="boot-title" data-role="title">正在准备 Realmork</p>
+        <p class="boot-copy" data-role="copy">暖色界面与作业数据正在就绪，请稍候。</p>
+      </section>
     </main>
     <script>
-      const state = new URLSearchParams(window.location.search).get("state");
+      const params = new URLSearchParams(window.location.search);
+      const state = params.get("state");
       if (state === "error") {
+        const panel = document.querySelector(".boot-panel");
         document.body.classList.add("is-error");
+        panel?.setAttribute("aria-label", "Realmork 启动失败");
+        document.querySelector("[data-role='title']").textContent = "Realmork 启动失败";
+        document.querySelector("[data-role='copy']").textContent = "本地服务暂时没有准备好，请稍后重试。";
       }
     </script>
   </body>

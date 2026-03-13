@@ -291,6 +291,13 @@ func TestAPIHandlerSupportsCORSPreflight(t *testing.T) {
 
 	api := NewAPI(store, "secret-token", func() time.Time {
 		return time.Date(2026, 3, 12, 8, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	}, stubDailyQuoteProvider{
+		quote: DailyQuote{
+			Text:      "学而不思则罔，思而不学则殆。",
+			Author:    "孔子",
+			QuoteDate: "2026-03-12",
+			Source:    "library",
+		},
 	})
 
 	req := httptest.NewRequest(http.MethodOptions, "/api/homeworks?view=today", nil)
@@ -336,6 +343,13 @@ func TestAPIHandlerDeletesHomework(t *testing.T) {
 
 	api := NewAPI(store, "secret-token", func() time.Time {
 		return now
+	}, stubDailyQuoteProvider{
+		quote: DailyQuote{
+			Text:      "学而不思则罔，思而不学则殆。",
+			Author:    "孔子",
+			QuoteDate: "2026-03-12",
+			Source:    "library",
+		},
 	})
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/homeworks/"+created.ID, nil)
@@ -368,6 +382,13 @@ func TestAPIHandlerDeleteReturnsNotFound(t *testing.T) {
 
 	api := NewAPI(store, "secret-token", func() time.Time {
 		return time.Date(2026, 3, 12, 8, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	}, stubDailyQuoteProvider{
+		quote: DailyQuote{
+			Text:      "学而不思则罔，思而不学则殆。",
+			Author:    "孔子",
+			QuoteDate: "2026-03-12",
+			Source:    "library",
+		},
 	})
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/homeworks/missing", nil)

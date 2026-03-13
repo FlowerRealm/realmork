@@ -1,15 +1,18 @@
 import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "react";
 import "./styles.css";
-import { createHomework, deleteHomework, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
+import { createHomework, deleteHomework, getDailyQuote, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
 import { getBackendState, retryBackendStart, subscribeBackendState, type BackendState } from "./lib/backend";
-import { formatMonthDayWeekday } from "./lib/format";
+import { formatDateTime } from "./lib/format";
 import { removeHomework, sortRecordHomeworks, sortTodayHomeworks, upsertHomework, withDerivedHomeworkState } from "./lib/homework";
-import type { Homework, HomeworkPayload, ViewMode } from "./lib/types";
+import type { DailyQuote, Homework, HomeworkPayload, ViewMode } from "./lib/types";
+import { FloatingTopbar } from "./components/FloatingTopbar";
 import { HomeworkCard } from "./components/HomeworkCard";
 import { HomeworkModal } from "./components/HomeworkModal";
 
 const TODAY_CAPACITY = 10;
+const SUMMARY_ITEM_LIMIT = 3;
 const FOCUS_REFRESH_THRESHOLD = 60_000;
+const REFRESH_INTERVAL_MS = 30_000;
 const initialBackendState: BackendState = {
   status: "starting",
   apiBaseUrl: "",
@@ -20,13 +23,23 @@ const initialBackendState: BackendState = {
 function LoadingState({ label }: { label: string }) {
   return (
     <div className="panel-state loading-state" role="status" aria-label={label} aria-live="polite" aria-busy="true">
-      <div className="loading-mark" aria-hidden="true">
-        <span className="loading-glow loading-glow-a"></span>
-        <span className="loading-glow loading-glow-b"></span>
-        <span className="loading-orbit loading-orbit-a"></span>
-        <span className="loading-orbit loading-orbit-b"></span>
-        <span className="loading-core"></span>
+      <div className="warm-loader" aria-hidden="true">
+        <span className="warm-loader-aura warm-loader-aura-primary"></span>
+        <span className="warm-loader-aura warm-loader-aura-secondary"></span>
+        <div className="warm-loader-stack">
+          <span className="warm-loader-sheet warm-loader-sheet-back"></span>
+          <span className="warm-loader-sheet warm-loader-sheet-middle"></span>
+          <div className="warm-loader-sheet warm-loader-sheet-front">
+            <span className="warm-loader-seal"></span>
+            <span className="warm-loader-line warm-loader-line-title"></span>
+            <span className="warm-loader-line warm-loader-line-meta"></span>
+            <span className="warm-loader-progress">
+              <span className="warm-loader-progress-bar"></span>
+            </span>
+          </div>
+        </div>
       </div>
+      <p className="loading-caption">{label}</p>
     </div>
   );
 }
@@ -48,10 +61,35 @@ function resolveBackendState(current: BackendState, next: BackendState): Backend
   return next;
 }
 
+function getHomeworkFocusLabel(homework: Homework): string {
+  if (homework.needsSubmission) {
+    return "要交";
+  }
+
+  if (homework.isOverdue) {
+    return "逾期";
+  }
+
+  return "待办";
+}
+
+function millisecondsUntilNextMidnight(now: Date): number {
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 0);
+  return Math.max(nextMidnight.getTime() - now.getTime(), 1000);
+}
+
+function millisecondsUntilNextMinute(now: Date): number {
+  const nextMinute = new Date(now);
+  nextMinute.setSeconds(60, 0);
+  return Math.max(nextMinute.getTime() - now.getTime(), 250);
+}
+
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [records, setRecords] = useState<Homework[]>([]);
   const [backendState, setBackendState] = useState<BackendState>(initialBackendState);
+  const [dailyQuote, setDailyQuote] = useState<DailyQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -161,13 +199,97 @@ export default function App() {
   }, [backendState.status, hasLoadedRecords]);
 
   useEffect(() => {
-    const intervalID = window.setInterval(() => {
-      startTransition(() => {
-        setCurrentTime(new Date());
-      });
-    }, 60_000);
+    let cancelled = false;
+    let timer = 0;
 
-    return () => window.clearInterval(intervalID);
+    function scheduleClockTick() {
+      timer = window.setTimeout(() => {
+        startTransition(() => {
+          setCurrentTime(new Date());
+        });
+        if (!cancelled) {
+          scheduleClockTick();
+        }
+      }, millisecondsUntilNextMinute(new Date()));
+    }
+
+    scheduleClockTick();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let midnightTimer = 0;
+    let retryTimer = 0;
+    let loadingQuote = false;
+
+    function clearRetryTimer() {
+      if (retryTimer !== 0) {
+        window.clearTimeout(retryTimer);
+        retryTimer = 0;
+      }
+    }
+
+    async function loadQuote() {
+      try {
+        const nextQuote = await getDailyQuote();
+        if (!cancelled) {
+          setDailyQuote(nextQuote);
+        }
+        return true;
+      } catch {
+        if (!cancelled) {
+          setDailyQuote(null);
+        }
+        return false;
+      }
+    }
+
+    function scheduleRetry() {
+      clearRetryTimer();
+      retryTimer = window.setTimeout(() => {
+        void loadQuoteWithRetry();
+      }, REFRESH_INTERVAL_MS);
+    }
+
+    async function loadQuoteWithRetry() {
+      if (loadingQuote) {
+        return;
+      }
+
+      loadingQuote = true;
+      clearRetryTimer();
+
+      const loaded = await loadQuote();
+      loadingQuote = false;
+
+      if (!cancelled && !loaded) {
+        scheduleRetry();
+      }
+    }
+
+    function scheduleNextRefresh() {
+      midnightTimer = window.setTimeout(() => {
+        void loadQuoteWithRetry().finally(() => {
+          if (!cancelled) {
+            scheduleNextRefresh();
+          }
+        });
+      }, millisecondsUntilNextMidnight(new Date()));
+    }
+
+    void loadQuoteWithRetry();
+    scheduleNextRefresh();
+
+    return () => {
+      cancelled = true;
+      clearRetryTimer();
+      window.clearTimeout(midnightTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -196,7 +318,6 @@ export default function App() {
     () => sortedTodayHomeworks.slice(0, TODAY_CAPACITY),
     [sortedTodayHomeworks]
   );
-
   const hiddenCount = Math.max(sortedTodayHomeworks.length - visibleTodayHomeworks.length, 0);
   const isTodayView = viewMode === "today";
   const currentItems = isTodayView ? visibleTodayHomeworks : sortedRecordHomeworks;
@@ -207,7 +328,28 @@ export default function App() {
       : "按截止时间从近到远"
     : "按截止时间倒序";
   const listMeta = refreshing ? `${listMetaBase} · 同步中...` : listMetaBase;
-  const topbarDate = formatMonthDayWeekday(currentTime);
+  const todayPendingCount = sortedTodayHomeworks.filter((homework) => !homework.submitted).length;
+  const attentionCount = sortedTodayHomeworks.filter(
+    (homework) => !homework.submitted && (homework.needsSubmission || homework.isOverdue)
+  ).length;
+  const summaryCards = [
+    { label: "今日总数", value: sortedTodayHomeworks.length },
+    { label: "待提交", value: todayPendingCount },
+    { label: "需立即处理", value: attentionCount },
+    { label: "记录总数", value: sortedRecordHomeworks.length }
+  ];
+  const recentPendingHomeworks = useMemo(
+    () => sortedTodayHomeworks.filter((homework) => !homework.submitted).slice(0, SUMMARY_ITEM_LIMIT),
+    [sortedTodayHomeworks]
+  );
+  const overviewCopy =
+    !hasLoadedRecords || loading
+      ? "正在整理今天的作业状态。"
+      : error
+        ? "暂时拿不到最新数据，稍后重新加载。"
+        : todayPendingCount > 0
+          ? `今天还有 ${todayPendingCount} 项待提交，先处理最近截止的。`
+          : "今天的待办已经清空，可以安心回看记录。";
 
   const bannerMessage =
     backendState.status === "error" && hasLoadedRecords
@@ -216,12 +358,19 @@ export default function App() {
         ? error
         : "";
   const blockingLabel = backendState.status === "starting" ? "本地服务启动中" : "作业数据加载中";
+  const blockingErrorMessage = backendState.status === "error" ? backendState.error : error;
 
   async function handleSave(payload: HomeworkPayload, existingId?: string) {
     setError("");
 
-    const savedHomework = existingId ? await updateHomework(existingId, payload) : await createHomework(payload);
-    applyRecordsMutation((current) => upsertHomework(current, savedHomework));
+    try {
+      const savedHomework = existingId ? await updateHomework(existingId, payload) : await createHomework(payload);
+      applyRecordsMutation((current) => upsertHomework(current, savedHomework));
+    } catch (saveError) {
+      const message = toErrorMessage(saveError, "保存失败");
+      setError(message);
+      throw new Error(message);
+    }
   }
 
   async function handleToggleSubmitted(homework: Homework) {
@@ -282,103 +431,178 @@ export default function App() {
 
   return (
     <div className="shell">
+      <div className="page-header">
+        <div className="page-header-inner">
+          <FloatingTopbar currentTime={currentTime} dailyQuote={dailyQuote} />
+        </div>
+      </div>
+
       <main className="workspace-frame">
-        <header className="floating-topbar" aria-label="当前日期">
-          <time className="topbar-date" dateTime={currentTime.toISOString()}>
-            {topbarDate}
-          </time>
-        </header>
-
-        <section className="list-panel">
-          <header className="column-toolbar">
-            <div className="view-switch">
-              <button
-                className={viewMode === "today" ? "switch-button active" : "switch-button"}
-                type="button"
-                onClick={() => setViewMode("today")}
-              >
-                今日
+        <div className="dashboard-layout">
+          <section className="list-panel">
+            <header className="column-toolbar">
+              <div className="view-switch">
+                <button
+                  className={viewMode === "today" ? "switch-button active" : "switch-button"}
+                  type="button"
+                  onClick={() => setViewMode("today")}
+                >
+                  今日
+                </button>
+                <button
+                  className={viewMode === "records" ? "switch-button active" : "switch-button"}
+                  type="button"
+                  onClick={() => setViewMode("records")}
+                >
+                  记录
+                </button>
+              </div>
+              <button className="primary-button" type="button" onClick={openCreateModal}>
+                新增作业
               </button>
-              <button
-                className={viewMode === "records" ? "switch-button active" : "switch-button"}
-                type="button"
-                onClick={() => setViewMode("records")}
-              >
-                记录
-              </button>
+            </header>
+
+            <div className="list-head">
+              <span>{listTitle}</span>
+              <span>{listMeta}</span>
             </div>
-            <button className="primary-button" type="button" onClick={openCreateModal}>
-              新增作业
-            </button>
-          </header>
 
-          <div className="list-head">
-            <span>{listTitle}</span>
-            <span>{listMeta}</span>
-          </div>
+            {bannerMessage ? (
+              <div className="sync-banner error" role="status">
+                <p>{bannerMessage}</p>
+                <button
+                  className="ghost-button compact"
+                  type="button"
+                  onClick={() => {
+                    if (backendState.status === "error") {
+                      void handleRetryConnection();
+                      return;
+                    }
 
-          {bannerMessage ? (
-            <div className="sync-banner error" role="status">
-              <p>{bannerMessage}</p>
-              <button
-                className="ghost-button compact"
-                type="button"
-                onClick={() => {
-                  if (backendState.status === "error") {
-                    void handleRetryConnection();
-                    return;
-                  }
+                    void refreshRecords({ blocking: false });
+                  }}
+                >
+                  {backendState.status === "error" ? "重试连接" : "重新加载"}
+                </button>
+              </div>
+            ) : null}
 
-                  void refreshRecords({ blocking: false });
-                }}
-              >
-                {backendState.status === "error" ? "重试连接" : "重新加载"}
-              </button>
+            {!hasLoadedRecords && blockingErrorMessage ? (
+              <div className="panel-state error">
+                <p>{blockingErrorMessage}</p>
+                <button
+                  className="ghost-button compact"
+                  type="button"
+                  onClick={() => {
+                    if (backendState.status === "error") {
+                      void handleRetryConnection();
+                      return;
+                    }
+
+                    void refreshRecords({ blocking: true });
+                  }}
+                >
+                  {backendState.status === "error" ? "重试连接" : "重新加载"}
+                </button>
+              </div>
+            ) : !hasLoadedRecords ? (
+              <LoadingState label={blockingLabel} />
+            ) : (
+              <div className={`list-items ${isTodayView ? "today-items" : "records-items"}`}>
+                {currentItems.length === 0 ? (
+                  <article className="empty-card">
+                    <h3>{isTodayView ? "今天没有待办" : "还没有记录"}</h3>
+                    <p>{isTodayView ? "当前没有今日或逾期作业。" : "新增一条作业后会自动保存在本机。"}</p>
+                  </article>
+                ) : (
+                  currentItems.map((homework) => (
+                    <HomeworkCard
+                      key={homework.id}
+                      homework={homework}
+                      fullDate={!isTodayView}
+                      onEdit={openEditModal}
+                      onDelete={handleDelete}
+                      onToggleSubmitted={handleToggleSubmitted}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </section>
+
+          <aside className="summary-panel" aria-label="作业概览">
+            <div className="summary-intro">
+              <span className="summary-kicker">overview</span>
+              <h2 className="summary-title">作业概览</h2>
+              <p className="summary-copy">{overviewCopy}</p>
             </div>
-          ) : null}
 
-          {!hasLoadedRecords && (backendState.status === "error" || error) ? (
-            <div className="panel-state error">
-              <p>{backendState.status === "error" ? backendState.error : error}</p>
-              <button
-                className="ghost-button compact"
-                type="button"
-                onClick={() => {
-                  if (backendState.status === "error") {
-                    void handleRetryConnection();
-                    return;
-                  }
+            {!hasLoadedRecords && blockingErrorMessage ? (
+              <div className="summary-state error">
+                <p>{blockingErrorMessage}</p>
+                <button className="ghost-button compact" type="button" onClick={() => void handleRetryConnection()}>
+                  重试连接
+                </button>
+              </div>
+            ) : !hasLoadedRecords ? (
+              <div className="summary-state">
+                <p>{blockingLabel}</p>
+              </div>
+            ) : (
+              <>
+                <div className="summary-grid">
+                  {summaryCards.map((card) => (
+                    <article key={card.label} className="summary-card" aria-label={`${card.label} ${card.value}`}>
+                      <span className="summary-card-label">{card.label}</span>
+                      <strong className="summary-card-value">{card.value}</strong>
+                    </article>
+                  ))}
+                </div>
 
-                  void refreshRecords({ blocking: true });
-                }}
-              >
-                {backendState.status === "error" ? "重试连接" : "重新加载"}
-              </button>
-            </div>
-          ) : !hasLoadedRecords ? (
-            <LoadingState label={blockingLabel} />
-          ) : (
-            <div className={`list-items ${isTodayView ? "today-items" : "records-items"}`}>
-              {currentItems.length === 0 ? (
-                <article className="empty-card">
-                  <h3>{isTodayView ? "今天没有待办" : "还没有记录"}</h3>
-                  <p>{isTodayView ? "当前没有今日或逾期作业。" : "新增一条作业后会自动保存在本机。"}</p>
-                </article>
-              ) : (
-                currentItems.map((homework) => (
-                  <HomeworkCard
-                    key={homework.id}
-                    homework={homework}
-                    fullDate={!isTodayView}
-                    onEdit={openEditModal}
-                    onDelete={handleDelete}
-                    onToggleSubmitted={handleToggleSubmitted}
-                  />
-                ))
-              )}
-            </div>
-          )}
-        </section>
+                <section className="summary-section">
+                  <div className="summary-section-head">
+                    <span>最近待处理</span>
+                    <span>最多 {SUMMARY_ITEM_LIMIT} 条</span>
+                  </div>
+
+                  {recentPendingHomeworks.length === 0 ? (
+                    <div className="summary-empty">
+                      <p>今天没有待处理项。</p>
+                      <span>可以切到记录里回看已经完成的内容。</span>
+                    </div>
+                  ) : (
+                    <div className="summary-list">
+                      {recentPendingHomeworks.map((homework) => (
+                        <article key={homework.id} className="summary-item">
+                          <div className="summary-item-top">
+                            <span className="summary-item-subject">{homework.subject}</span>
+                            <span
+                              className={homework.needsSubmission || homework.isOverdue ? "summary-pill urgent" : "summary-pill"}
+                            >
+                              {getHomeworkFocusLabel(homework)}
+                            </span>
+                          </div>
+                          <p className="summary-item-content">{homework.content}</p>
+                          <time className="summary-item-date" dateTime={homework.dueAt}>
+                            截止 {formatDateTime(homework.dueAt)}
+                          </time>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="summary-section">
+                  <div className="summary-section-head">
+                    <span>{isTodayView ? "当前聚焦今日清单" : "当前聚焦历史记录"}</span>
+                    <span>{listTitle}</span>
+                  </div>
+                  <p className="summary-copy">{listMeta}</p>
+                </section>
+              </>
+            )}
+          </aside>
+        </div>
 
         <HomeworkModal
           open={modalOpen}

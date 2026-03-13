@@ -2,11 +2,12 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import type { BackendState } from "./lib/backend";
-import type { Homework } from "./lib/types";
+import type { DailyQuote, Homework } from "./lib/types";
 
 vi.mock("./lib/api", () => ({
   createHomework: vi.fn(),
   deleteHomework: vi.fn(),
+  getDailyQuote: vi.fn(),
   listHomeworks: vi.fn(),
   submitHomework: vi.fn(),
   unsubmitHomework: vi.fn(),
@@ -82,6 +83,16 @@ async function flushMicrotasks() {
   });
 }
 
+function buildDailyQuote(overrides: Partial<DailyQuote> = {}): DailyQuote {
+  return {
+    text: "学而不思则罔，思而不学则殆。",
+    author: "孔子",
+    quoteDate: "2026-03-12",
+    source: "online",
+    ...overrides
+  };
+}
+
 function buildHomework(index: number, overrides: Partial<Homework> = {}): Homework {
   const hour = `${(index % 6) + 12}`.padStart(2, "0");
   return {
@@ -91,8 +102,8 @@ function buildHomework(index: number, overrides: Partial<Homework> = {}): Homewo
     dueAt: `2026-03-12T${hour}:00:00+08:00`,
     submitted: false,
     submittedAt: null,
-    createdAt: `2026-03-10T08:00:00+08:00`,
-    updatedAt: `2026-03-10T08:00:00+08:00`,
+    createdAt: "2026-03-10T08:00:00+08:00",
+    updatedAt: "2026-03-10T08:00:00+08:00",
     needsSubmission: false,
     isOverdue: false,
     isToday: true,
@@ -104,13 +115,14 @@ describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedBackend.__resetBackendState();
+    vi.mocked(api.getDailyQuote).mockResolvedValue(buildDailyQuote());
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("shows floating date topbar while keeping main actions", async () => {
+  it("shows floating date and daily quote in the topbar while keeping main actions", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
@@ -119,20 +131,26 @@ describe("App", () => {
     await flushMicrotasks();
 
     expect(screen.getByText("3月12日 周四")).toBeInTheDocument();
+    expect(screen.getByText("“学而不思则罔，思而不学则殆。”")).toBeInTheDocument();
+    expect(screen.getByText("- 孔子")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "记录" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增作业" })).toBeInTheDocument();
     expect(api.listHomeworks).toHaveBeenCalledWith("records");
   });
 
-  it("keeps glass layout containers for page and modal", async () => {
+  it("keeps glass layout containers for page, summary and modal", async () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
     const user = userEvent.setup();
 
     const { container } = render(<App />);
 
+    expect(container.querySelector(".page-header")).not.toBeNull();
+    expect(container.querySelector(".page-header-inner")).not.toBeNull();
     expect(container.querySelector(".floating-topbar")).not.toBeNull();
+    expect(container.querySelector(".dashboard-layout")).not.toBeNull();
     expect(container.querySelector(".list-panel")).not.toBeNull();
+    expect(container.querySelector(".summary-panel")).not.toBeNull();
 
     await user.click(await screen.findByRole("button", { name: "新增作业" }));
 
@@ -211,10 +229,12 @@ describe("App", () => {
     const user = userEvent.setup();
 
     render(<App />);
+    const listPanel = screen.getByText("今日作业").closest(".list-panel");
 
-    expect(await screen.findByText("backend start timeout")).toBeInTheDocument();
+    expect(listPanel).not.toBeNull();
+    expect(await within(listPanel as HTMLElement).findByText("backend start timeout")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "重试连接" }));
+    await user.click(within(listPanel as HTMLElement).getByRole("button", { name: "重试连接" }));
 
     await waitFor(() => {
       expect(vi.mocked(backend.retryBackendStart)).toHaveBeenCalledTimes(1);
@@ -229,8 +249,10 @@ describe("App", () => {
     const user = userEvent.setup();
 
     render(<App />);
+    const listPanel = screen.getByText("今日作业").closest(".list-panel");
 
-    expect(await screen.findByText("初始内容")).toBeInTheDocument();
+    expect(listPanel).not.toBeNull();
+    expect(await within(listPanel as HTMLElement).findByText("初始内容")).toBeInTheDocument();
 
     await act(async () => {
       mockedBackend.__setBackendState({
@@ -242,15 +264,169 @@ describe("App", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("backend dropped")).toBeInTheDocument();
+    expect(within(listPanel as HTMLElement).getByText("backend dropped")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "重试连接" }));
+    await user.click(within(listPanel as HTMLElement).getByRole("button", { name: "重试连接" }));
 
     await waitFor(() => {
       expect(vi.mocked(backend.retryBackendStart)).toHaveBeenCalledTimes(1);
       expect(api.listHomeworks).toHaveBeenCalledTimes(2);
-      expect(screen.getByText("重试后的内容")).toBeInTheDocument();
+      expect(within(listPanel as HTMLElement).getByText("重试后的内容")).toBeInTheDocument();
     });
+  });
+
+  it("keeps main actions available while daily quote is still loading", async () => {
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote).mockImplementation(
+      () =>
+        new Promise(() => {
+          // Keep the quote request pending to verify the rest of the page still works.
+        })
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("按截止时间从近到远")).toBeInTheDocument();
+    expect(screen.getByLabelText("当前日期与每日一言")).toBeInTheDocument();
+    expect(screen.queryByText("“学而不思则罔，思而不学则殆。”")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "记录" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新增作业" })).toBeInTheDocument();
+  });
+
+  it("keeps the page usable when daily quote loading fails", async () => {
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote).mockRejectedValue(new Error("quote failed"));
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByLabelText("当前日期与每日一言")).toBeInTheDocument();
+    expect(screen.queryByText("- 孔子")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "新增作业" }));
+    expect(screen.getByRole("button", { name: "保存作业" })).toBeInTheDocument();
+  });
+
+  it("refreshes the daily quote after midnight without extra records polling", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T23:59:50+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote)
+      .mockResolvedValueOnce(
+        buildDailyQuote({
+          text: "学而不思则罔，思而不学则殆。",
+          quoteDate: "2026-03-12"
+        })
+      )
+      .mockResolvedValueOnce(
+        buildDailyQuote({
+          text: "苟日新，日日新，又日新。",
+          author: "《礼记》",
+          quoteDate: "2026-03-13"
+        })
+      );
+
+    render(<App />);
+    await flushMicrotasks();
+
+    expect(screen.getByText("“学而不思则罔，思而不学则殆。”")).toBeInTheDocument();
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(1);
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(new Date("2026-03-13T00:00:01+08:00"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11_000);
+    });
+
+    expect(screen.getByText("3月13日 周五")).toBeInTheDocument();
+    expect(screen.getByText("“苟日新，日日新，又日新。”")).toBeInTheDocument();
+    expect(screen.getByText("- 《礼记》")).toBeInTheDocument();
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries loading the daily quote on the regular refresh interval after an initial failure", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.getDailyQuote)
+      .mockRejectedValueOnce(new Error("quote failed"))
+      .mockResolvedValueOnce(
+        buildDailyQuote({
+          text: "千里之行，始于足下。",
+          author: "老子"
+        })
+      );
+
+    render(<App />);
+    await flushMicrotasks();
+
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("“千里之行，始于足下。”")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("“千里之行，始于足下。”")).toBeInTheDocument();
+    expect(screen.getByText("- 老子")).toBeInTheDocument();
+  });
+
+  it("shows summary metrics and caps recent pending items at three", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    const urgentHomework = buildHomework(1, {
+      subject: "语文",
+      content: "先交作文",
+      dueAt: "2026-03-12T09:00:00+08:00",
+      needsSubmission: true
+    });
+    const overdueHomework = buildHomework(2, {
+      subject: "物理",
+      content: "补交实验",
+      dueAt: "2026-03-12T08:30:00+08:00",
+      isOverdue: true
+    });
+    const pendingHomework = buildHomework(3, {
+      subject: "数学",
+      content: "数学卷",
+      dueAt: "2026-03-12T10:00:00+08:00"
+    });
+    const hiddenPendingHomework = buildHomework(4, {
+      subject: "英语",
+      content: "英语背诵",
+      dueAt: "2026-03-12T11:30:00+08:00"
+    });
+    const submittedHomework = buildHomework(5, {
+      subject: "化学",
+      content: "已完成实验",
+      dueAt: "2026-03-12T12:30:00+08:00",
+      submitted: true,
+      submittedAt: "2026-03-12T12:00:00+08:00"
+    });
+
+    vi.mocked(api.listHomeworks).mockResolvedValue([
+      pendingHomework,
+      submittedHomework,
+      hiddenPendingHomework,
+      urgentHomework,
+      overdueHomework
+    ]);
+
+    render(<App />);
+    const summaryPanel = screen.getByLabelText("作业概览");
+    await flushMicrotasks();
+
+    expect(within(summaryPanel).getByLabelText("待提交 4")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("需立即处理 2")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("记录总数 5")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("今日总数 5")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("补交实验")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("先交作文")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("数学卷")).toBeInTheDocument();
+    expect(within(summaryPanel).queryByText("英语背诵")).not.toBeInTheDocument();
   });
 
   it("limits homework subjects to supported choices in the modal", async () => {
@@ -274,10 +450,12 @@ describe("App", () => {
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue(Array.from({ length: 12 }, (_, index) => buildHomework(index + 1)));
 
-    render(<App />);
+    const { container } = render(<App />);
     await flushMicrotasks();
+    const listPanel = container.querySelector(".list-panel");
 
-    expect(screen.getByText("仅显示最近 10 条，剩余 2 条在记录中")).toBeInTheDocument();
+    expect(listPanel).not.toBeNull();
+    expect(within(listPanel as HTMLElement).getByText("仅显示最近 10 条，剩余 2 条在记录中")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "提交" })).toHaveLength(10);
   });
 

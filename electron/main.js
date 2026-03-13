@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,16 @@ let backendState = {
 let backendRunID = 0;
 let appQuitting = false;
 let waitingForBackendShutdown = false;
+
+function configureApplicationMenu() {
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
+  const menu = Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]);
+  Menu.setApplicationMenu(menu);
+}
 
 function resolveBackendBinary() {
   return path.join(process.cwd(), "dist", "bin", process.platform === "win32" ? "homeworkd.exe" : "homeworkd");
@@ -93,7 +103,12 @@ async function stopBackendProcess() {
 }
 
 function resolveBackendLaunch(token) {
+  const quoteALAPIToken = process.env.REALMORK_ALAPI_TOKEN ?? "";
   const args = ["-data-dir", app.getPath("userData"), "-token", token, "-port", "0"];
+
+  if (quoteALAPIToken) {
+    args.push("-quote-alapi-token", quoteALAPIToken);
+  }
 
   if (useDevelopmentBackend) {
     return {
@@ -258,7 +273,7 @@ async function waitForRenderer(window) {
       if (response.ok) {
         return;
       }
-    } catch (error) {
+    } catch {
       // Renderer dev server is still warming up.
     }
 
@@ -303,7 +318,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1366,
     minHeight: 840,
-    backgroundColor: "#ece7dc",
+    backgroundColor: "#f7f1e9",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs")
     }
@@ -352,6 +367,7 @@ ipcMain.handle("realmork:retry-backend-start", async () => {
 });
 
 app.whenReady().then(async () => {
+  configureApplicationMenu();
   void ensureBackendStarted().catch((error) => {
     console.error(error);
   });
