@@ -1,5 +1,7 @@
 node_modules/
 dist/
 coverage/
+.release-workspace/
+release/
 *.log
 .DS_Store

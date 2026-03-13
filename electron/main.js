@@ -2,9 +2,9 @@ import { app, BrowserWindow, Menu } from "electron";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import os from "node:os";
 import { randomBytes } from "node:crypto";
 import readline from "node:readline";
+import fs from "node:fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +12,8 @@ const __dirname = path.dirname(__filename);
 let backendProcess;
 let mainWindow;
 let backendInfoPromise;
+
+const platformBinaryName = process.platform === "win32" ? "homeworkd.exe" : "homeworkd";
 
 function configureApplicationMenu() {
   if (process.platform !== "darwin") {
@@ -23,14 +25,33 @@ function configureApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-function resolveBackendBinary() {
-  const builtBinary = path.join(process.cwd(), "dist", "bin", process.platform === "win32" ? "homeworkd.exe" : "homeworkd");
-  if (process.env.NODE_ENV === "production") {
-    return builtBinary;
+function resolveRendererEntry() {
+  if (process.env.ELECTRON_RENDERER_URL) {
+    return { type: "url", value: process.env.ELECTRON_RENDERER_URL };
   }
-  return process.platform === "win32"
-    ? path.join(process.cwd(), "dist", "bin", "homeworkd.exe")
-    : builtBinary;
+
+  if (!app.isPackaged) {
+    return { type: "file", value: path.join(process.cwd(), "dist", "index.html") };
+  }
+
+  return { type: "file", value: path.join(app.getAppPath(), "dist", "index.html") };
+}
+
+function resolveBackendBinary() {
+  if (!app.isPackaged) {
+    return path.join(process.cwd(), "dist", "bin", platformBinaryName);
+  }
+
+  const arch = process.arch;
+  const candidates = [path.join(process.resourcesPath, "bin", `${process.platform}-${arch}`, platformBinaryName)];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`backend binary not found for ${process.platform}-${arch}`);
 }
 
 function waitForBackendPort(child) {
@@ -74,7 +95,7 @@ async function startBackend() {
   const binary = resolveBackendBinary();
 
   backendProcess = spawn(binary, ["-data-dir", dataDir, "-token", token, "-port", "0", "-quote-alapi-token", quoteALAPIToken], {
-    cwd: process.cwd(),
+    cwd: path.dirname(binary),
     stdio: ["ignore", "pipe", "pipe"]
   });
 
@@ -95,6 +116,7 @@ async function startBackend() {
 
 async function createWindow() {
   const backend = await startBackend();
+  const rendererEntry = resolveRendererEntry();
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -111,10 +133,10 @@ async function createWindow() {
     }
   });
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+  if (rendererEntry.type === "url") {
+    await mainWindow.loadURL(rendererEntry.value);
   } else {
-    await mainWindow.loadFile(path.join(process.cwd(), "dist", "index.html"));
+    await mainWindow.loadFile(rendererEntry.value);
   }
 
   mainWindow.webContents.on("before-input-event", (event, input) => {

@@ -2,6 +2,15 @@
   "name": "realmork",
   "version": "0.1.0",
   "private": true,
+  "author": {
+    "name": "FlowerRealm",
+    "email": "flower_realm@outlook.com"
+  },
+  "homepage": "https://github.com/FlowerRealm/realmork",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FlowerRealm/realmork.git"
+  },
   "description": "Homework manager desktop app built with Go, Electron, and React.",
   "main": "electron/main.js",
   "type": "module",
@@ -20,6 +29,7 @@
     "concurrently": "^9.2.0",
     "cross-env": "^10.0.0",
     "electron": "^37.4.0",
+    "electron-builder": "^26.8.1",
     "jsdom": "^26.1.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
@@ -28,12 +38,15 @@
   },
   "scripts": {
     "dev": "npm run dev:backend && cross-env NODE_ENV=development ELECTRON_RENDERER_URL=http://127.0.0.1:5173 concurrently \"vite --host 127.0.0.1 --strictPort\" \"npm:dev:electron\"",
-    "dev:backend": "mkdir -p dist/bin && go build -o dist/bin/homeworkd ./cmd/homeworkd",
-    "dev:electron": "wait-on tcp:5173 file:dist/bin/homeworkd && electron .",
+    "dev:backend": "node ./scripts/build-backend.mjs current",
+    "dev:electron": "wait-on tcp:5173 && electron .",
     "start": "electron .",
     "build:renderer": "vite build",
-    "build:backend": "mkdir -p dist/bin && go build -o dist/bin/homeworkd ./cmd/homeworkd",
+    "build:backend": "node ./scripts/build-backend.mjs current",
     "build": "npm run build:renderer && npm run build:backend",
+    "release:linux": "node ./scripts/release.mjs --platform=linux",
+    "release:win": "node ./scripts/release.mjs --platform=win",
+    "release:mac": "node ./scripts/release.mjs --platform=mac",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   }

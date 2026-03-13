@@ -1,4 +1,4 @@
-.PHONY: dev build test typecheck backend
+.PHONY: dev build test typecheck backend release-linux release-win release-mac
 
 NPM := npm
 
@@ -16,4 +16,13 @@ typecheck:
 	$(NPM) run typecheck
 
 backend:
-	go build -o dist/bin/homeworkd ./cmd/homeworkd
+	$(NPM) run build:backend
+
+release-linux:
+	$(NPM) run release:linux
+
+release-win:
+	$(NPM) run release:win
+
+release-mac:
+	$(NPM) run release:mac
