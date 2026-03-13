@@ -22,9 +22,9 @@ export async function removeDir(dirPath) {
 }
 
 export function run(command, args, options = {}) {
-  const executable = resolveExecutable(command);
+  const spawnSpec = resolveSpawnSpec(command, args);
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, {
+    const child = spawn(spawnSpec.command, spawnSpec.args, {
       cwd: repoRoot,
       stdio: "inherit",
       env: process.env,
@@ -36,23 +36,77 @@ export function run(command, args, options = {}) {
         resolve();
         return;
       }
-      reject(new Error(`${executable} ${args.join(" ")} failed with exit code ${code ?? "unknown"}`));
+      reject(new Error(`${spawnSpec.displayCommand} failed with exit code ${code ?? "unknown"}`));
     });
 
     child.on("error", reject);
   });
 }
 
-function resolveExecutable(command) {
+function resolveSpawnSpec(command, args) {
   if (process.platform !== "win32") {
-    return command;
+    return {
+      command,
+      args,
+      displayCommand: formatCommand(command, args)
+    };
   }
 
   if (command === "npm" || command === "npx") {
-    return `${command}.cmd`;
+    const cmd = process.env.ComSpec || "C:\\Windows\\System32\\cmd.exe";
+    const executable = `${command}.cmd`;
+    const commandLine = [executable, ...args].map(quoteWindowsArg).join(" ");
+    return {
+      command: cmd,
+      args: ["/d", "/s", "/c", commandLine],
+      displayCommand: formatCommand(command, args)
+    };
   }
 
-  return command;
+  return {
+    command,
+    args,
+    displayCommand: formatCommand(command, args)
+  };
+}
+
+function formatCommand(command, args) {
+  return [command, ...args].join(" ");
+}
+
+function quoteWindowsArg(arg) {
+  if (arg.length === 0) {
+    return '""';
+  }
+
+  if (!/[ \t"]/u.test(arg)) {
+    return arg;
+  }
+
+  let escaped = '"';
+  let backslashes = 0;
+
+  for (const char of arg) {
+    if (char === "\\") {
+      backslashes += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      escaped += "\\".repeat(backslashes * 2 + 1);
+      escaped += '"';
+      backslashes = 0;
+      continue;
+    }
+
+    escaped += "\\".repeat(backslashes);
+    escaped += char;
+    backslashes = 0;
+  }
+
+  escaped += "\\".repeat(backslashes * 2);
+  escaped += '"';
+  return escaped;
 }
 
 export function parseArgs(argv) {
