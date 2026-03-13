@@ -53,8 +53,10 @@ type RefreshRecordsOptions = {
   backendState?: BackendState;
 };
 
-function resolveBackendState(current: BackendState, next: BackendState): BackendState {
-  if (next.status === "starting" && current.status !== "starting") {
+type BackendStateSource = "snapshot" | "subscription";
+
+function resolveBackendState(current: BackendState, next: BackendState, source: BackendStateSource): BackendState {
+  if (source === "snapshot" && next.status === "starting" && current.status !== "starting") {
     return current;
   }
 
@@ -151,12 +153,12 @@ export default function App() {
   useEffect(() => {
     let subscribed = true;
 
-    function applyBackendState(nextState: BackendState) {
+    function applyBackendState(nextState: BackendState, source: BackendStateSource) {
       if (!subscribed) {
         return;
       }
 
-      setBackendState((current) => resolveBackendState(current, nextState));
+      setBackendState((current) => resolveBackendState(current, nextState, source));
       if (nextState.status === "error") {
         setLoading(false);
         setRefreshing(false);
@@ -164,12 +166,12 @@ export default function App() {
     }
 
     const unsubscribe = subscribeBackendState((state) => {
-      applyBackendState(state);
+      applyBackendState(state, "subscription");
     });
 
     void getBackendState()
       .then((state) => {
-        applyBackendState(state);
+        applyBackendState(state, "snapshot");
       })
       .catch((backendError) => {
         if (!subscribed) {

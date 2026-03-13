@@ -218,7 +218,15 @@ describe("App", () => {
     });
   });
 
-  it("retries backend startup from the blocking error state", async () => {
+  it("returns to the starting state while retrying from the blocking error state", async () => {
+    const readyState: BackendState = {
+      status: "ready",
+      apiBaseUrl: "http://127.0.0.1:3017",
+      apiToken: "test-token",
+      error: ""
+    };
+    let resolveRetry: ((state: BackendState) => void) | null = null;
+
     mockedBackend.__setBackendState({
       status: "error",
       apiBaseUrl: "",
@@ -226,6 +234,18 @@ describe("App", () => {
       error: "backend start timeout"
     });
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(backend.retryBackendStart).mockImplementationOnce(
+      () =>
+        new Promise<BackendState>((resolve) => {
+          resolveRetry = resolve;
+          mockedBackend.__setBackendState({
+            status: "starting",
+            apiBaseUrl: "",
+            apiToken: "",
+            error: ""
+          });
+        })
+    );
     const user = userEvent.setup();
 
     render(<App />);
@@ -235,6 +255,15 @@ describe("App", () => {
     expect(await within(listPanel as HTMLElement).findByText("backend start timeout")).toBeInTheDocument();
 
     await user.click(within(listPanel as HTMLElement).getByRole("button", { name: "重试连接" }));
+
+    expect(await screen.findByRole("status", { name: "本地服务启动中" })).toBeInTheDocument();
+    expect(screen.queryByText("backend start timeout")).not.toBeInTheDocument();
+
+    await act(async () => {
+      mockedBackend.__setBackendState(readyState);
+      resolveRetry?.(readyState);
+      await Promise.resolve();
+    });
 
     await waitFor(() => {
       expect(vi.mocked(backend.retryBackendStart)).toHaveBeenCalledTimes(1);
