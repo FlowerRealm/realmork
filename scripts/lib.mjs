@@ -22,8 +22,9 @@ export async function removeDir(dirPath) {
 }
 
 export function run(command, args, options = {}) {
+  const executable = resolveExecutable(command);
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = spawn(executable, args, {
       cwd: repoRoot,
       stdio: "inherit",
       env: process.env,
@@ -35,11 +36,23 @@ export function run(command, args, options = {}) {
         resolve();
         return;
       }
-      reject(new Error(`${command} ${args.join(" ")} failed with exit code ${code ?? "unknown"}`));
+      reject(new Error(`${executable} ${args.join(" ")} failed with exit code ${code ?? "unknown"}`));
     });
 
     child.on("error", reject);
   });
+}
+
+function resolveExecutable(command) {
+  if (process.platform !== "win32") {
+    return command;
+  }
+
+  if (command === "npm" || command === "npx") {
+    return `${command}.cmd`;
+  }
+
+  return command;
 }
 
 export function parseArgs(argv) {

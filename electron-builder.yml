@@ -14,6 +14,7 @@ extraResources:
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 mac:
   category: public.app-category.productivity
+  x64ArchFiles: "**/Resources/bin/**/*"
   target:
     - target: dmg
       arch:
