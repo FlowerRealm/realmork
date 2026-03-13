@@ -1,7 +1,8 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
-import type { Homework } from "./lib/types";
+import type { BackendState } from "./lib/backend";
+import type { DailyQuote, Homework } from "./lib/types";
 
 vi.mock("./lib/api", () => ({
   createHomework: vi.fn(),
@@ -13,30 +14,96 @@ vi.mock("./lib/api", () => ({
   updateHomework: vi.fn()
 }));
 
+vi.mock("./lib/backend", () => {
+  const listeners = new Set<(state: BackendState) => void>();
+  const readyState: BackendState = {
+    status: "ready",
+    apiBaseUrl: "http://127.0.0.1:3017",
+    apiToken: "test-token",
+    error: ""
+  };
+
+  let currentState: BackendState = readyState;
+
+  const cloneState = (): BackendState => ({ ...currentState });
+  const notify = () => {
+    const nextState = cloneState();
+    for (const listener of listeners) {
+      listener(nextState);
+    }
+  };
+
+  return {
+    getBackendState: vi.fn(async () => cloneState()),
+    waitForBackend: vi.fn(async () => {
+      if (currentState.status !== "ready") {
+        throw new Error(currentState.error || "backend unavailable");
+      }
+      return cloneState();
+    }),
+    retryBackendStart: vi.fn(async () => {
+      currentState = readyState;
+      notify();
+      return cloneState();
+    }),
+    subscribeBackendState: vi.fn((listener: (state: BackendState) => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    }),
+    __setBackendState(nextState: Partial<BackendState>) {
+      currentState = {
+        ...currentState,
+        ...nextState
+      };
+      notify();
+    },
+    __resetBackendState() {
+      currentState = readyState;
+      listeners.clear();
+    }
+  };
+});
+
 const api = await import("./lib/api");
+const backend = await import("./lib/backend");
+
+type MockedBackend = typeof backend & {
+  __setBackendState: (state: Partial<BackendState>) => void;
+  __resetBackendState: () => void;
+};
+
+const mockedBackend = backend as MockedBackend;
 const subjectCycle = ["语文", "数学", "英语", "物理", "化学", "生物"] as const;
 
-function buildDailyQuote(overrides: Partial<import("./lib/types").DailyQuote> = {}) {
+async function flushMicrotasks() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
+function buildDailyQuote(overrides: Partial<DailyQuote> = {}): DailyQuote {
   return {
     text: "学而不思则罔，思而不学则殆。",
     author: "孔子",
     quoteDate: "2026-03-12",
-    source: "online" as const,
+    source: "online",
     ...overrides
   };
 }
 
 function buildHomework(index: number, overrides: Partial<Homework> = {}): Homework {
-  const hour = `${(index % 12) + 8}`.padStart(2, "0");
+  const hour = `${(index % 6) + 12}`.padStart(2, "0");
   return {
     id: `hw-${index}`,
     subject: subjectCycle[index % subjectCycle.length],
     content: `作业内容 ${index}`,
-    dueAt: `2026-03-11T${hour}:00:00+08:00`,
+    dueAt: `2026-03-12T${hour}:00:00+08:00`,
     submitted: false,
     submittedAt: null,
-    createdAt: `2026-03-10T08:00:00+08:00`,
-    updatedAt: `2026-03-10T08:00:00+08:00`,
+    createdAt: "2026-03-10T08:00:00+08:00",
+    updatedAt: "2026-03-10T08:00:00+08:00",
     needsSubmission: false,
     isOverdue: false,
     isToday: true,
@@ -47,6 +114,7 @@ function buildHomework(index: number, overrides: Partial<Homework> = {}): Homewo
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedBackend.__resetBackendState();
     vi.mocked(api.getDailyQuote).mockResolvedValue(buildDailyQuote());
   });
 
@@ -59,24 +127,19 @@ describe("App", () => {
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
 
-    let renderResult: ReturnType<typeof render> | undefined;
-    await act(async () => {
-      renderResult = render(<App />);
-      await Promise.resolve();
-    });
+    render(<App />);
+    await flushMicrotasks();
 
-    expect(renderResult?.container.querySelector(".topbar-line")).not.toBeNull();
-    expect(renderResult?.container.querySelector(".topbar-quote-group")).not.toBeNull();
-    expect(renderResult?.container.querySelector(".topbar-quote-line")).not.toBeNull();
     expect(screen.getByText("3月12日 周四")).toBeInTheDocument();
     expect(screen.getByText("“学而不思则罔，思而不学则殆。”")).toBeInTheDocument();
     expect(screen.getByText("- 孔子")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "记录" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增作业" })).toBeInTheDocument();
+    expect(api.listHomeworks).toHaveBeenCalledWith("records");
   });
 
-  it("keeps glass layout containers for page and modal", async () => {
+  it("keeps glass layout containers for page, summary and modal", async () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
     const user = userEvent.setup();
 
@@ -85,7 +148,6 @@ describe("App", () => {
     expect(container.querySelector(".page-header")).not.toBeNull();
     expect(container.querySelector(".page-header-inner")).not.toBeNull();
     expect(container.querySelector(".floating-topbar")).not.toBeNull();
-    expect(container.querySelector(".topbar-line")).not.toBeNull();
     expect(container.querySelector(".dashboard-layout")).not.toBeNull();
     expect(container.querySelector(".list-panel")).not.toBeNull();
     expect(container.querySelector(".summary-panel")).not.toBeNull();
@@ -94,6 +156,152 @@ describe("App", () => {
 
     expect(container.querySelector(".modal-backdrop")).not.toBeNull();
     expect(container.querySelector(".modal-card")).not.toBeNull();
+  });
+
+  it("shows backend loading state before records can load", async () => {
+    mockedBackend.__setBackendState({
+      status: "starting",
+      apiBaseUrl: "",
+      apiToken: "",
+      error: ""
+    });
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+
+    render(<App />);
+    await flushMicrotasks();
+
+    expect(screen.getByRole("status", { name: "本地服务启动中" })).toBeInTheDocument();
+    expect(api.listHomeworks).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mockedBackend.__setBackendState({
+        status: "ready",
+        apiBaseUrl: "http://127.0.0.1:3017",
+        apiToken: "test-token",
+        error: ""
+      });
+      await Promise.resolve();
+    });
+
+    expect(api.listHomeworks).toHaveBeenCalledWith("records");
+  });
+
+  it("does not miss a ready event between initial snapshot and subscription", async () => {
+    const readyState: BackendState = {
+      status: "ready",
+      apiBaseUrl: "http://127.0.0.1:3017",
+      apiToken: "test-token",
+      error: ""
+    };
+
+    mockedBackend.__setBackendState({
+      status: "starting",
+      apiBaseUrl: "",
+      apiToken: "",
+      error: ""
+    });
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(backend.getBackendState).mockImplementationOnce(async () => {
+      mockedBackend.__setBackendState(readyState);
+      return {
+        status: "starting",
+        apiBaseUrl: "",
+        apiToken: "",
+        error: ""
+      };
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(api.listHomeworks).toHaveBeenCalledWith("records");
+    });
+  });
+
+  it("returns to the starting state while retrying from the blocking error state", async () => {
+    const readyState: BackendState = {
+      status: "ready",
+      apiBaseUrl: "http://127.0.0.1:3017",
+      apiToken: "test-token",
+      error: ""
+    };
+    let resolveRetry: ((state: BackendState) => void) | null = null;
+
+    mockedBackend.__setBackendState({
+      status: "error",
+      apiBaseUrl: "",
+      apiToken: "",
+      error: "backend start timeout"
+    });
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(backend.retryBackendStart).mockImplementationOnce(
+      () =>
+        new Promise<BackendState>((resolve) => {
+          resolveRetry = resolve;
+          mockedBackend.__setBackendState({
+            status: "starting",
+            apiBaseUrl: "",
+            apiToken: "",
+            error: ""
+          });
+        })
+    );
+    const user = userEvent.setup();
+
+    render(<App />);
+    const listPanel = screen.getByText("今日作业").closest(".list-panel");
+
+    expect(listPanel).not.toBeNull();
+    expect(await within(listPanel as HTMLElement).findByText("backend start timeout")).toBeInTheDocument();
+
+    await user.click(within(listPanel as HTMLElement).getByRole("button", { name: "重试连接" }));
+
+    expect(await screen.findByRole("status", { name: "本地服务启动中" })).toBeInTheDocument();
+    expect(screen.queryByText("backend start timeout")).not.toBeInTheDocument();
+
+    await act(async () => {
+      mockedBackend.__setBackendState(readyState);
+      resolveRetry?.(readyState);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(vi.mocked(backend.retryBackendStart)).toHaveBeenCalledTimes(1);
+      expect(api.listHomeworks).toHaveBeenCalledWith("records");
+    });
+  });
+
+  it("refreshes records after retrying a dropped backend with cached data", async () => {
+    const initialHomework = buildHomework(1, { content: "初始内容" });
+    const refreshedHomework = buildHomework(2, { content: "重试后的内容" });
+    vi.mocked(api.listHomeworks).mockResolvedValueOnce([initialHomework]).mockResolvedValueOnce([refreshedHomework]);
+    const user = userEvent.setup();
+
+    render(<App />);
+    const listPanel = screen.getByText("今日作业").closest(".list-panel");
+
+    expect(listPanel).not.toBeNull();
+    expect(await within(listPanel as HTMLElement).findByText("初始内容")).toBeInTheDocument();
+
+    await act(async () => {
+      mockedBackend.__setBackendState({
+        status: "error",
+        apiBaseUrl: "",
+        apiToken: "",
+        error: "backend dropped"
+      });
+      await Promise.resolve();
+    });
+
+    expect(within(listPanel as HTMLElement).getByText("backend dropped")).toBeInTheDocument();
+
+    await user.click(within(listPanel as HTMLElement).getByRole("button", { name: "重试连接" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(backend.retryBackendStart)).toHaveBeenCalledTimes(1);
+      expect(api.listHomeworks).toHaveBeenCalledTimes(2);
+      expect(within(listPanel as HTMLElement).getByText("重试后的内容")).toBeInTheDocument();
+    });
   });
 
   it("keeps main actions available while daily quote is still loading", async () => {
@@ -129,7 +337,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "保存作业" })).toBeInTheDocument();
   });
 
-  it("refreshes the daily quote after midnight without triggering homework polling", async () => {
+  it("refreshes the daily quote after midnight without extra records polling", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T23:59:50+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
@@ -148,14 +356,12 @@ describe("App", () => {
         })
       );
 
-    await act(async () => {
-      render(<App />);
-      await Promise.resolve();
-    });
+    render(<App />);
+    await flushMicrotasks();
 
     expect(screen.getByText("“学而不思则罔，思而不学则殆。”")).toBeInTheDocument();
     expect(api.getDailyQuote).toHaveBeenCalledTimes(1);
-    expect(api.listHomeworks).toHaveBeenCalledTimes(2);
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
 
     vi.setSystemTime(new Date("2026-03-13T00:00:01+08:00"));
     await act(async () => {
@@ -166,7 +372,7 @@ describe("App", () => {
     expect(screen.getByText("“苟日新，日日新，又日新。”")).toBeInTheDocument();
     expect(screen.getByText("- 《礼记》")).toBeInTheDocument();
     expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
-    expect(api.listHomeworks).toHaveBeenCalledTimes(2);
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
   });
 
   it("retries loading the daily quote on the regular refresh interval after an initial failure", async () => {
@@ -182,10 +388,8 @@ describe("App", () => {
         })
       );
 
-    await act(async () => {
-      render(<App />);
-      await Promise.resolve();
-    });
+    render(<App />);
+    await flushMicrotasks();
 
     expect(api.getDailyQuote).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("“千里之行，始于足下。”")).not.toBeInTheDocument();
@@ -200,6 +404,8 @@ describe("App", () => {
   });
 
   it("shows summary metrics and caps recent pending items at three", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     const urgentHomework = buildHomework(1, {
       subject: "语文",
       content: "先交作文",
@@ -230,24 +436,22 @@ describe("App", () => {
       submittedAt: "2026-03-12T12:00:00+08:00"
     });
 
-    vi.mocked(api.listHomeworks).mockImplementation(async (view) => {
-      if (view === "today") {
-        return [pendingHomework, submittedHomework, hiddenPendingHomework, urgentHomework, overdueHomework];
-      }
-      return [submittedHomework, urgentHomework, pendingHomework, overdueHomework, hiddenPendingHomework];
-    });
+    vi.mocked(api.listHomeworks).mockResolvedValue([
+      pendingHomework,
+      submittedHomework,
+      hiddenPendingHomework,
+      urgentHomework,
+      overdueHomework
+    ]);
 
     render(<App />);
-
     const summaryPanel = screen.getByLabelText("作业概览");
-
-    await waitFor(() => {
-      expect(within(summaryPanel).getByLabelText("今日总数 5")).toBeInTheDocument();
-    });
+    await flushMicrotasks();
 
     expect(within(summaryPanel).getByLabelText("待提交 4")).toBeInTheDocument();
     expect(within(summaryPanel).getByLabelText("需立即处理 2")).toBeInTheDocument();
     expect(within(summaryPanel).getByLabelText("记录总数 5")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("今日总数 5")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("补交实验")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("先交作文")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("数学卷")).toBeInTheDocument();
@@ -271,36 +475,52 @@ describe("App", () => {
   });
 
   it("limits today cards to 10 and shows overflow hint", async () => {
-    vi.mocked(api.listHomeworks).mockImplementation(async (view) => {
-      if (view === "today") {
-        return Array.from({ length: 12 }, (_, index) => buildHomework(index + 1));
-      }
-      return [];
-    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue(Array.from({ length: 12 }, (_, index) => buildHomework(index + 1)));
 
-    render(<App />);
-    const listPanel = screen.getByText("今日作业").closest(".list-panel");
+    const { container } = render(<App />);
+    await flushMicrotasks();
+    const listPanel = container.querySelector(".list-panel");
 
-    await waitFor(() => {
-      expect(listPanel).not.toBeNull();
-      expect(within(listPanel as HTMLElement).getByText("仅显示最近 10 条，剩余 2 条在记录中")).toBeInTheDocument();
-    });
+    expect(listPanel).not.toBeNull();
+    expect(within(listPanel as HTMLElement).getByText("仅显示最近 10 条，剩余 2 条在记录中")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "提交" })).toHaveLength(10);
   });
 
   it("switches labels and action for urgent homework", async () => {
-    vi.mocked(api.listHomeworks).mockImplementation(async (view) => {
-      if (view === "today") {
-        return [buildHomework(1, { needsSubmission: true })];
-      }
-      return [];
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([buildHomework(1, { dueAt: "2026-03-12T08:00:00+08:00" })]);
+    vi.mocked(api.submitHomework).mockResolvedValue(buildHomework(1, { submitted: true, submittedAt: "2026-03-12T09:00:00+08:00" }));
+
+    render(<App />);
+    await flushMicrotasks();
+
+    expect(screen.getByText("需要提交")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "提交" })).toBeInTheDocument();
+  });
+
+  it("updates submitted state without reloading the full records list", async () => {
+    const homework = buildHomework(1);
+    vi.mocked(api.listHomeworks).mockResolvedValue([homework]);
+    vi.mocked(api.submitHomework).mockResolvedValue({
+      ...homework,
+      submitted: true,
+      submittedAt: "2026-03-12T10:00:00+08:00"
     });
-    vi.mocked(api.submitHomework).mockResolvedValue(buildHomework(1, { submitted: true, submittedAt: "2026-03-11T09:00:00+08:00" }));
+    const user = userEvent.setup();
 
     render(<App />);
 
-    expect(await screen.findByText("需要提交")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "提交" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "记录" }));
+    await user.click(await screen.findByRole("button", { name: "提交" }));
+
+    await waitFor(() => {
+      expect(api.submitHomework).toHaveBeenCalledWith(homework.id);
+    });
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("已提交")).toBeInTheDocument();
   });
 
   it("confirms before deleting homework", async () => {
@@ -318,6 +538,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(api.deleteHomework).toHaveBeenCalledWith(homework.id);
     });
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
 
     confirmSpy.mockRestore();
   });
@@ -339,20 +560,14 @@ describe("App", () => {
   it("keeps submitted state after editing a submitted homework", async () => {
     const submittedHomework = buildHomework(1, {
       submitted: true,
-      submittedAt: "2026-03-11T09:00:00+08:00",
-      isToday: false
+      submittedAt: "2026-03-12T09:00:00+08:00"
     });
 
-    vi.mocked(api.listHomeworks).mockImplementation(async (view) => {
-      if (view === "records") {
-        return [submittedHomework];
-      }
-      return [];
-    });
+    vi.mocked(api.listHomeworks).mockResolvedValue([submittedHomework]);
     vi.mocked(api.updateHomework).mockResolvedValue({
       ...submittedHomework,
       content: "改完之后",
-      updatedAt: "2026-03-11T10:00:00+08:00"
+      updatedAt: "2026-03-12T10:00:00+08:00"
     });
 
     const user = userEvent.setup();
@@ -369,24 +584,19 @@ describe("App", () => {
     await waitFor(() => {
       expect(api.updateHomework).toHaveBeenCalled();
     });
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
   });
 
   it("requires choosing a supported subject when editing legacy homework", async () => {
     const legacyHomework = buildHomework(1, {
-      subject: "历史",
-      isToday: false
+      subject: "历史"
     });
 
-    vi.mocked(api.listHomeworks).mockImplementation(async (view) => {
-      if (view === "records") {
-        return [legacyHomework];
-      }
-      return [];
-    });
+    vi.mocked(api.listHomeworks).mockResolvedValue([legacyHomework]);
     vi.mocked(api.updateHomework).mockResolvedValue({
       ...legacyHomework,
       subject: "化学",
-      updatedAt: "2026-03-11T10:00:00+08:00"
+      updatedAt: "2026-03-12T10:00:00+08:00"
     });
 
     const user = userEvent.setup();
@@ -414,5 +624,24 @@ describe("App", () => {
         })
       );
     });
+  });
+
+  it("refreshes records when the window regains focus after one minute", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([buildHomework(1)]);
+
+    render(<App />);
+    await flushMicrotasks();
+
+    expect(api.listHomeworks).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(61_000);
+      window.dispatchEvent(new Event("focus"));
+      await Promise.resolve();
+    });
+
+    expect(api.listHomeworks).toHaveBeenCalledTimes(2);
   });
 });

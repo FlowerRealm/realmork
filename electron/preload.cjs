@@ -1,11 +1,19 @@
-const { contextBridge } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
-function readArgument(prefix) {
-  const arg = process.argv.find((item) => item.startsWith(prefix));
-  return arg ? arg.slice(prefix.length) : "";
-}
+const BACKEND_STATE_EVENT = "realmork:backend-state";
 
 contextBridge.exposeInMainWorld("realmork", {
-  apiBaseUrl: readArgument("--realmork-api-base-url="),
-  apiToken: readArgument("--realmork-api-token=")
+  getBackendState: () => ipcRenderer.invoke("realmork:get-backend-state"),
+  waitForBackend: () => ipcRenderer.invoke("realmork:wait-for-backend"),
+  retryBackendStart: () => ipcRenderer.invoke("realmork:retry-backend-start"),
+  subscribeBackendState: (listener) => {
+    const handleChange = (_event, state) => {
+      listener(state);
+    };
+
+    ipcRenderer.on(BACKEND_STATE_EVENT, handleChange);
+    return () => {
+      ipcRenderer.removeListener(BACKEND_STATE_EVENT, handleChange);
+    };
+  }
 });

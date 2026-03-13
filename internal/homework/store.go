@@ -16,6 +16,8 @@ import (
 
 const currentSchemaVersion = 1
 
+var beijingLocation = time.FixedZone("CST", 8*60*60)
+
 var ErrNotFound = errors.New("homework not found")
 
 var supportedSubjects = []string{"语文", "数学", "英语", "物理", "化学", "生物"}
@@ -287,9 +289,10 @@ func isSupportedSubject(subject string) bool {
 }
 
 func deriveView(item Homework, now time.Time) HomeworkView {
-	localDueAt := item.DueAt.In(now.Location())
-	isToday := sameDay(localDueAt, now)
-	isOverdue := !item.Submitted && localDueAt.Before(now) && !isToday
+	beijingNow := now.In(beijingLocation)
+	localDueAt := item.DueAt.In(beijingLocation)
+	isToday := sameDay(localDueAt, beijingNow)
+	isOverdue := !item.Submitted && localDueAt.Before(beijingNow) && !isToday
 
 	return HomeworkView{
 		Homework: Homework{
@@ -302,7 +305,7 @@ func deriveView(item Homework, now time.Time) HomeworkView {
 			CreatedAt:   item.CreatedAt,
 			UpdatedAt:   item.UpdatedAt,
 		},
-		NeedsSubmission: !item.Submitted && (localDueAt.Equal(now) || localDueAt.Before(now)),
+		NeedsSubmission: !item.Submitted && (localDueAt.Equal(beijingNow) || localDueAt.Before(beijingNow)),
 		IsOverdue:       isOverdue,
 		IsToday:         isToday,
 	}
