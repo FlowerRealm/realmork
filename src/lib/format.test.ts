@@ -4,6 +4,7 @@ import {
   formatMonthDayWeekday,
   fromLocalInputValue,
   getBeijingDateParts,
+  millisecondsUntilNextBeijingMidnight,
   toLocalInputValue
 } from "./format";
 
@@ -28,5 +29,10 @@ describe("format", () => {
       minute: 30,
       weekday: undefined
     });
+  });
+
+  it("calculates the next Beijing midnight independent of runtime timezone", () => {
+    expect(millisecondsUntilNextBeijingMidnight(new Date("2026-03-11T18:30:00Z"))).toBe(77_400_000);
+    expect(millisecondsUntilNextBeijingMidnight(new Date("2026-03-12T16:00:00Z"))).toBe(86_400_000);
   });
 });

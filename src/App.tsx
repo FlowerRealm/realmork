@@ -2,7 +2,7 @@ import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "r
 import "./styles.css";
 import { createHomework, deleteHomework, getDailyQuote, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
 import { getBackendState, retryBackendStart, subscribeBackendState, type BackendState } from "./lib/backend";
-import { formatDateTime } from "./lib/format";
+import { formatDateTime, millisecondsUntilNextBeijingMidnight } from "./lib/format";
 import { removeHomework, sortRecordHomeworks, sortTodayHomeworks, upsertHomework, withDerivedHomeworkState } from "./lib/homework";
 import type { DailyQuote, Homework, HomeworkPayload, ViewMode } from "./lib/types";
 import { FloatingTopbar } from "./components/FloatingTopbar";
@@ -73,12 +73,6 @@ function getHomeworkFocusLabel(homework: Homework): string {
   }
 
   return "待办";
-}
-
-function millisecondsUntilNextMidnight(now: Date): number {
-  const nextMidnight = new Date(now);
-  nextMidnight.setHours(24, 0, 0, 0);
-  return Math.max(nextMidnight.getTime() - now.getTime(), 1000);
 }
 
 function millisecondsUntilNextMinute(now: Date): number {
@@ -281,7 +275,7 @@ export default function App() {
             scheduleNextRefresh();
           }
         });
-      }, millisecondsUntilNextMidnight(new Date()));
+      }, millisecondsUntilNextBeijingMidnight(new Date()));
     }
 
     void loadQuoteWithRetry();

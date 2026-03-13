@@ -1,5 +1,6 @@
 const BEIJING_TIME_ZONE = "Asia/Shanghai";
 const BEIJING_OFFSET = "+08:00";
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 
 type DateParts = {
   year: number;
@@ -67,6 +68,17 @@ function toDateParts(value: Date | string, includeWeekday = false): DateParts {
 
 export function getBeijingDateParts(value: Date | string): DateParts {
   return toDateParts(value);
+}
+
+export function millisecondsUntilNextBeijingMidnight(value: Date): number {
+  const parts = toDateParts(value);
+  let nextMidnight = Date.UTC(parts.year, parts.month - 1, parts.day, 16, 0, 0, 0);
+
+  if (nextMidnight <= value.getTime()) {
+    nextMidnight += DAY_IN_MILLISECONDS;
+  }
+
+  return Math.max(nextMidnight - value.getTime(), 1000);
 }
 
 export function formatDateTime(value: string): string {

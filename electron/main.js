@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 const BACKEND_STATE_EVENT = "realmork:backend-state";
 const DEV_RENDERER_URL = process.env.ELECTRON_RENDERER_URL ?? "";
 const hasRendererDevServer = DEV_RENDERER_URL !== "";
-const useDevelopmentBackend = process.env.NODE_ENV === "development";
+const useDevelopmentBackend = hasRendererDevServer || process.env.NODE_ENV === "development";
 const platformBinaryName = process.platform === "win32" ? "homeworkd.exe" : "homeworkd";
 
 let backendProcess;
