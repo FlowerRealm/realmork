@@ -1,0 +1,37 @@
+appId: com.flowerrealm.realmork
+productName: Realmork
+electronVersion: 37.4.0
+directories:
+  output: ../release
+files:
+  - electron/**
+  - dist/**
+asarUnpack:
+  - resources/bin/**
+extraResources:
+  - from: resources/bin
+    to: bin
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+mac:
+  category: public.app-category.productivity
+  x64ArchFiles: "**/Resources/bin/**/*"
+  target:
+    - target: dmg
+      arch:
+        - universal
+linux:
+  category: Office
+  maintainer: FlowerRealm <flower_realm@outlook.com>
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+publish: null

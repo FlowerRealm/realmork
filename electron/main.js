@@ -1,10 +1,11 @@
 import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import readline from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,7 @@ const BACKEND_STATE_EVENT = "realmork:backend-state";
 const DEV_RENDERER_URL = process.env.ELECTRON_RENDERER_URL ?? "";
 const hasRendererDevServer = DEV_RENDERER_URL !== "";
 const useDevelopmentBackend = process.env.NODE_ENV === "development";
+const platformBinaryName = process.platform === "win32" ? "homeworkd.exe" : "homeworkd";
 
 let backendProcess;
 let mainWindow;
@@ -36,8 +38,33 @@ function configureApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
+function resolveRendererEntry() {
+  if (DEV_RENDERER_URL) {
+    return { type: "url", value: DEV_RENDERER_URL };
+  }
+
+  if (!app.isPackaged) {
+    return { type: "file", value: path.join(process.cwd(), "dist", "index.html") };
+  }
+
+  return { type: "file", value: path.join(app.getAppPath(), "dist", "index.html") };
+}
+
 function resolveBackendBinary() {
-  return path.join(process.cwd(), "dist", "bin", process.platform === "win32" ? "homeworkd.exe" : "homeworkd");
+  if (!app.isPackaged) {
+    return path.join(process.cwd(), "dist", "bin", platformBinaryName);
+  }
+
+  const arch = process.arch;
+  const candidates = [path.join(process.resourcesPath, "bin", `${process.platform}-${arch}`, platformBinaryName)];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`backend binary not found for ${process.platform}-${arch}`);
 }
 
 function snapshotBackendState() {
@@ -113,13 +140,16 @@ function resolveBackendLaunch(token) {
   if (useDevelopmentBackend) {
     return {
       command: "go",
-      args: ["run", "./cmd/homeworkd", ...args]
+      args: ["run", "./cmd/homeworkd", ...args],
+      cwd: process.cwd()
     };
   }
 
+  const binary = resolveBackendBinary();
   return {
-    command: resolveBackendBinary(),
-    args
+    command: binary,
+    args,
+    cwd: path.dirname(binary)
   };
 }
 
@@ -222,7 +252,7 @@ function launchBackend() {
 
   setBackendState("starting");
   backendProcess = spawn(backendLaunch.command, backendLaunch.args, {
-    cwd: process.cwd(),
+    cwd: backendLaunch.cwd,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -309,7 +339,13 @@ async function loadInitialPage(window) {
     return;
   }
 
-  await window.loadFile(path.join(process.cwd(), "dist", "index.html"));
+  const rendererEntry = resolveRendererEntry();
+  if (rendererEntry.type === "url") {
+    await window.loadURL(rendererEntry.value);
+    return;
+  }
+
+  await window.loadFile(rendererEntry.value);
 }
 
 async function createWindow() {

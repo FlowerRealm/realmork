@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release_meta.outputs.release_tag }}
+      version: ${{ steps.release_meta.outputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release tag matches package version
+        id: release_meta
+        shell: bash
+        run: |
+          version="$(node --input-type=module -e "import fs from 'node:fs'; const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); process.stdout.write(pkg.version);")"
+          tag="${GITHUB_REF_NAME}"
+
+          if [[ "${tag#v}" != "${version}" ]]; then
+            echo "Tag ${tag} does not match package.json version ${version}" >&2
+            exit 1
+          fi
+
+          echo "release_tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or reuse GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release view "${{ steps.release_meta.outputs.release_tag }}" >/dev/null 2>&1 || \
+            gh release create "${{ steps.release_meta.outputs.release_tag }}" \
+              --title "${{ steps.release_meta.outputs.release_tag }}" \
+              --generate-notes
+
+  build-and-upload:
+    name: Package (${{ matrix.name }})
+    needs: prepare-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-latest
+            release_script: release:linux
+          - name: Windows x64
+            os: windows-latest
+            release_script: release:win
+          - name: macOS
+            os: macos-15
+            release_script: release:mac
+
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build desktop packages
+        run: npm run ${{ matrix.release_script }}
+
+      - name: Upload release assets
+        run: |
+          node ./scripts/upload-release-assets.mjs "${{ needs.prepare-release.outputs.release_tag }}"
