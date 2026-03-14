@@ -1,11 +1,12 @@
 import {
+  fromDueAtFormValue,
   formatDateTime,
   formatFullDateTime,
   formatMonthDayWeekday,
-  fromLocalInputValue,
+  toDateInputValue,
+  toDueAtFormValue,
   getBeijingDateParts,
-  millisecondsUntilNextBeijingMidnight,
-  toLocalInputValue
+  millisecondsUntilNextBeijingMidnight
 } from "./format";
 
 describe("format", () => {
@@ -15,9 +16,20 @@ describe("format", () => {
     expect(formatMonthDayWeekday(new Date("2026-03-11T18:30:00Z"))).toBe("3月12日 周四");
   });
 
-  it("converts datetime-local values using Beijing time semantics", () => {
-    expect(toLocalInputValue("2026-03-11T18:30:00Z")).toBe("2026-03-12T02:30");
-    expect(fromLocalInputValue("2026-03-12T02:30")).toBe("2026-03-12T02:30:00+08:00");
+  it("converts dueAt values to and from split Beijing date and time fields", () => {
+    expect(toDateInputValue("2026-03-11T18:30:00Z")).toBe("2026-03-12");
+    expect(toDueAtFormValue("2026-03-11T18:30:00Z")).toEqual({
+      date: "2026-03-12",
+      hour: "02",
+      minute: "30"
+    });
+    expect(
+      fromDueAtFormValue({
+        date: "2026-03-12",
+        hour: "02",
+        minute: "30"
+      })
+    ).toBe("2026-03-12T02:30:00+08:00");
   });
 
   it("extracts Beijing date parts independent of runtime timezone", () => {

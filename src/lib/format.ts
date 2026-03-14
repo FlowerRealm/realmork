@@ -94,15 +94,30 @@ export function formatMonthDayWeekday(value: Date): string {
   return `${parts.month}月${parts.day}日 ${parts.weekday}`;
 }
 
-export function toLocalInputValue(value: string): string {
-  const parts = toDateParts(value);
-  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}`;
+function formatDateInputValue(parts: Pick<DateParts, "year" | "month" | "day">): string {
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
 }
 
-export function fromLocalInputValue(value: string): string {
-  const [datePart, timePart] = value.split("T");
-  const [year, month, day] = datePart.split("-").map((item) => Number.parseInt(item, 10));
-  const [hour, minute] = timePart.split(":").map((item) => Number.parseInt(item, 10));
+export type DueAtFormValue = {
+  date: string;
+  hour: string;
+  minute: string;
+};
 
-  return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:00${BEIJING_OFFSET}`;
+export function toDateInputValue(value: Date | string): string {
+  const parts = toDateParts(value);
+  return formatDateInputValue(parts);
+}
+
+export function toDueAtFormValue(value: string): DueAtFormValue {
+  const parts = toDateParts(value);
+  return {
+    date: formatDateInputValue(parts),
+    hour: pad(parts.hour),
+    minute: pad(parts.minute)
+  };
+}
+
+export function fromDueAtFormValue(value: DueAtFormValue): string {
+  return `${value.date}T${value.hour}:${value.minute}:00${BEIJING_OFFSET}`;
 }
