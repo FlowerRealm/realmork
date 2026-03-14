@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import type { BackendState } from "./lib/backend";
@@ -474,6 +474,49 @@ describe("App", () => {
     expect(options).toEqual(["请选择学科", "语文", "数学", "英语", "物理", "化学", "生物"]);
   });
 
+  it("defaults new homework to today's date while keeping hour and minute unset", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+
+    render(<App />);
+    await flushMicrotasks();
+
+    fireEvent.click(screen.getByRole("button", { name: "新增作业" }));
+
+    expect(screen.getByLabelText("提交日期")).toHaveValue("2026-03-12");
+    expect(screen.getByLabelText("提交小时")).toHaveValue("");
+    expect(screen.getByLabelText("提交分钟")).toHaveValue("");
+  });
+
+  it("creates homework after choosing hour and minute manually", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    vi.mocked(api.createHomework).mockResolvedValue(buildHomework(7, {
+      subject: "数学",
+      content: "完成口算题",
+      dueAt: "2026-03-12T18:35:00+08:00"
+    }));
+
+    render(<App />);
+    await flushMicrotasks();
+
+    fireEvent.click(screen.getByRole("button", { name: "新增作业" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "学科" }), { target: { value: "数学" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /作业内容/i }), { target: { value: "完成口算题" } });
+    fireEvent.change(screen.getByLabelText("提交小时"), { target: { value: "18" } });
+    fireEvent.change(screen.getByLabelText("提交分钟"), { target: { value: "35" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存作业" }));
+    await flushMicrotasks();
+
+    expect(api.createHomework).toHaveBeenCalledWith({
+      subject: "数学",
+      content: "完成口算题",
+      dueAt: "2026-03-12T18:35:00+08:00"
+    });
+  });
+
   it("limits today cards to 10 and shows overflow hint", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
@@ -607,6 +650,9 @@ describe("App", () => {
 
     const select = screen.getByRole("combobox", { name: "学科" });
     expect(select).toHaveValue("");
+    expect(screen.getByLabelText("提交日期")).toHaveValue("2026-03-12");
+    expect(screen.getByLabelText("提交小时")).toHaveValue("13");
+    expect(screen.getByLabelText("提交分钟")).toHaveValue("00");
 
     await user.click(screen.getByRole("button", { name: "保存作业" }));
 

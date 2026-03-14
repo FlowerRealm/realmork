@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { isSupportedSubject, supportedSubjects } from "../lib/types";
 import type { Homework, HomeworkPayload } from "../lib/types";
-import { fromLocalInputValue, toLocalInputValue } from "../lib/format";
+import { fromDueAtFormValue, toDateInputValue, toDueAtFormValue } from "../lib/format";
 
 type HomeworkModalProps = {
   open: boolean;
@@ -13,14 +13,28 @@ type HomeworkModalProps = {
 type FormState = {
   subject: HomeworkPayload["subject"] | "";
   content: string;
-  dueAt: string;
+  dueDate: string;
+  dueHour: string;
+  dueMinute: string;
 };
 
 const emptyForm: FormState = {
   subject: "",
   content: "",
-  dueAt: ""
+  dueDate: "",
+  dueHour: "",
+  dueMinute: ""
 };
+
+const hourOptions = Array.from({ length: 24 }, (_, index) => `${index}`.padStart(2, "0"));
+const minuteOptions = Array.from({ length: 60 }, (_, index) => `${index}`.padStart(2, "0"));
+
+function buildCreateForm(now: Date): FormState {
+  return {
+    ...emptyForm,
+    dueDate: toDateInputValue(now)
+  };
+}
 
 export function HomeworkModal({ open, initialValue, onClose, onSubmit }: HomeworkModalProps) {
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -33,15 +47,19 @@ export function HomeworkModal({ open, initialValue, onClose, onSubmit }: Homewor
     }
 
     if (!initialValue) {
-      setForm(emptyForm);
+      setForm(buildCreateForm(new Date()));
       setError("");
       return;
     }
 
+    const dueAt = toDueAtFormValue(initialValue.dueAt);
+
     setForm({
       subject: isSupportedSubject(initialValue.subject) ? initialValue.subject : "",
       content: initialValue.content,
-      dueAt: toLocalInputValue(initialValue.dueAt)
+      dueDate: dueAt.date,
+      dueHour: dueAt.hour,
+      dueMinute: dueAt.minute
     });
     setError("");
   }, [initialValue, open]);
@@ -52,7 +70,7 @@ export function HomeworkModal({ open, initialValue, onClose, onSubmit }: Homewor
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isSupportedSubject(form.subject) || !form.content.trim() || !form.dueAt) {
+    if (!isSupportedSubject(form.subject) || !form.content.trim() || !form.dueDate || !form.dueHour || !form.dueMinute) {
       setError("请把学科、内容和提交时间填完整。");
       return;
     }
@@ -64,7 +82,11 @@ export function HomeworkModal({ open, initialValue, onClose, onSubmit }: Homewor
         {
           subject: form.subject,
           content: form.content.trim(),
-          dueAt: fromLocalInputValue(form.dueAt)
+          dueAt: fromDueAtFormValue({
+            date: form.dueDate,
+            hour: form.dueHour,
+            minute: form.dueMinute
+          })
         },
         initialValue?.id
       );
@@ -112,11 +134,38 @@ export function HomeworkModal({ open, initialValue, onClose, onSubmit }: Homewor
           </label>
           <label>
             <span>提交时间</span>
-            <input
-              type="datetime-local"
-              value={form.dueAt}
-              onChange={(event) => setForm((current) => ({ ...current, dueAt: event.target.value }))}
-            />
+            <div className="modal-time-grid">
+              <input
+                type="date"
+                aria-label="提交日期"
+                value={form.dueDate}
+                onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))}
+              />
+              <select
+                aria-label="提交小时"
+                value={form.dueHour}
+                onChange={(event) => setForm((current) => ({ ...current, dueHour: event.target.value }))}
+              >
+                <option value="">小时</option>
+                {hourOptions.map((hour) => (
+                  <option key={hour} value={hour}>
+                    {hour}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="提交分钟"
+                value={form.dueMinute}
+                onChange={(event) => setForm((current) => ({ ...current, dueMinute: event.target.value }))}
+              >
+                <option value="">分钟</option>
+                {minuteOptions.map((minute) => (
+                  <option key={minute} value={minute}>
+                    {minute}
+                  </option>
+                ))}
+              </select>
+            </div>
           </label>
           {error ? <p className="form-error">{error}</p> : null}
           <div className="modal-actions">
