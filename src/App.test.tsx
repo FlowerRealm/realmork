@@ -139,11 +139,12 @@ describe("App", () => {
     expect(api.listHomeworks).toHaveBeenCalledWith("records");
   });
 
-  it("keeps glass layout containers for page, summary and modal", async () => {
+  it("keeps the refreshed layout containers for page, summary and modal", async () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
     const user = userEvent.setup();
 
     const { container } = render(<App />);
+    await flushMicrotasks();
 
     expect(container.querySelector(".page-header")).not.toBeNull();
     expect(container.querySelector(".page-header-inner")).not.toBeNull();
@@ -151,6 +152,7 @@ describe("App", () => {
     expect(container.querySelector(".dashboard-layout")).not.toBeNull();
     expect(container.querySelector(".list-panel")).not.toBeNull();
     expect(container.querySelector(".summary-panel")).not.toBeNull();
+    expect(container.querySelector(".summary-grid")).not.toBeNull();
 
     await user.click(await screen.findByRole("button", { name: "新增作业" }));
 
@@ -315,7 +317,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("按截止时间从近到远")).toBeInTheDocument();
+    expect(await screen.findByText("按截止")).toBeInTheDocument();
     expect(screen.getByLabelText("当前日期与每日一言")).toBeInTheDocument();
     expect(screen.queryByText("“学而不思则罔，思而不学则殆。”")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
@@ -403,7 +405,7 @@ describe("App", () => {
     expect(screen.getByText("- 老子")).toBeInTheDocument();
   });
 
-  it("shows summary metrics and caps recent pending items at three", async () => {
+  it("shows summary metrics in a compact side panel", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     const urgentHomework = buildHomework(1, {
@@ -452,6 +454,8 @@ describe("App", () => {
     expect(within(summaryPanel).getByLabelText("需立即处理 2")).toBeInTheDocument();
     expect(within(summaryPanel).getByLabelText("记录总数 5")).toBeInTheDocument();
     expect(within(summaryPanel).getByLabelText("今日总数 5")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("最近待处理")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("当前聚焦今日清单")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("补交实验")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("先交作文")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("数学卷")).toBeInTheDocument();
@@ -527,7 +531,7 @@ describe("App", () => {
     const listPanel = container.querySelector(".list-panel");
 
     expect(listPanel).not.toBeNull();
-    expect(within(listPanel as HTMLElement).getByText("仅显示最近 10 条，剩余 2 条在记录中")).toBeInTheDocument();
+    expect(within(listPanel as HTMLElement).getByText("+2")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "提交" })).toHaveLength(10);
   });
 
@@ -537,10 +541,13 @@ describe("App", () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([buildHomework(1, { dueAt: "2026-03-12T08:00:00+08:00" })]);
     vi.mocked(api.submitHomework).mockResolvedValue(buildHomework(1, { submitted: true, submittedAt: "2026-03-12T09:00:00+08:00" }));
 
-    render(<App />);
+    const { container } = render(<App />);
     await flushMicrotasks();
 
-    expect(screen.getByText("需要提交")).toBeInTheDocument();
+    const listPanel = container.querySelector(".list-panel");
+
+    expect(listPanel).not.toBeNull();
+    expect(within(listPanel as HTMLElement).getByText("要交")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交" })).toBeInTheDocument();
   });
 
@@ -563,7 +570,22 @@ describe("App", () => {
       expect(api.submitHomework).toHaveBeenCalledWith(homework.id);
     });
     expect(api.listHomeworks).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("已提交")).toBeInTheDocument();
+    expect(screen.getByText("已交")).toBeInTheDocument();
+  });
+
+  it("shows single-line empty states", async () => {
+    vi.mocked(api.listHomeworks).mockResolvedValue([]);
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByText("今日无作业")).toBeInTheDocument();
+    expect(screen.queryByText("当前没有今日或逾期作业。")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "记录" }));
+
+    expect(screen.getByText("暂无记录")).toBeInTheDocument();
+    expect(screen.queryByText("新增一条作业后会自动保存在本机。")).not.toBeInTheDocument();
   });
 
   it("confirms before deleting homework", async () => {

@@ -320,32 +320,25 @@ export default function App() {
   const listTitle = isTodayView ? "今日作业" : "全部记录";
   const listMetaBase = isTodayView
     ? hiddenCount > 0
-      ? `仅显示最近 10 条，剩余 ${hiddenCount} 条在记录中`
-      : "按截止时间从近到远"
-    : "按截止时间倒序";
-  const listMeta = refreshing ? `${listMetaBase} · 同步中...` : listMetaBase;
+      ? `+${hiddenCount}`
+      : "按截止"
+    : "最新在前";
+  const listMeta = refreshing ? "同步中" : listMetaBase;
   const todayPendingCount = sortedTodayHomeworks.filter((homework) => !homework.submitted).length;
   const attentionCount = sortedTodayHomeworks.filter(
     (homework) => !homework.submitted && (homework.needsSubmission || homework.isOverdue)
   ).length;
   const summaryCards = [
-    { label: "今日总数", value: sortedTodayHomeworks.length },
-    { label: "待提交", value: todayPendingCount },
-    { label: "需立即处理", value: attentionCount },
-    { label: "记录总数", value: sortedRecordHomeworks.length }
+    { label: "今日", ariaLabel: "今日总数", value: sortedTodayHomeworks.length },
+    { label: "待交", ariaLabel: "待提交", value: todayPendingCount },
+    { label: "紧急", ariaLabel: "需立即处理", value: attentionCount },
+    { label: "总数", ariaLabel: "记录总数", value: sortedRecordHomeworks.length }
   ];
   const recentPendingHomeworks = useMemo(
     () => sortedTodayHomeworks.filter((homework) => !homework.submitted).slice(0, SUMMARY_ITEM_LIMIT),
     [sortedTodayHomeworks]
   );
-  const overviewCopy =
-    !hasLoadedRecords || loading
-      ? "正在整理今天的作业状态。"
-      : error
-        ? "暂时拿不到最新数据，稍后重新加载。"
-        : todayPendingCount > 0
-          ? `今天还有 ${todayPendingCount} 项待提交，先处理最近截止的。`
-          : "今天的待办已经清空，可以安心回看记录。";
+  const summaryFocusLabel = isTodayView ? "当前聚焦今日清单" : "当前聚焦历史记录";
 
   const bannerMessage =
     backendState.status === "error" && hasLoadedRecords
@@ -507,8 +500,7 @@ export default function App() {
               <div className={`list-items ${isTodayView ? "today-items" : "records-items"}`}>
                 {currentItems.length === 0 ? (
                   <article className="empty-card">
-                    <h3>{isTodayView ? "今天没有待办" : "还没有记录"}</h3>
-                    <p>{isTodayView ? "当前没有今日或逾期作业。" : "新增一条作业后会自动保存在本机。"}</p>
+                    <h3>{isTodayView ? "今日无作业" : "暂无记录"}</h3>
                   </article>
                 ) : (
                   currentItems.map((homework) => (
@@ -528,9 +520,7 @@ export default function App() {
 
           <aside className="summary-panel" aria-label="作业概览">
             <div className="summary-intro">
-              <span className="summary-kicker">overview</span>
-              <h2 className="summary-title">作业概览</h2>
-              <p className="summary-copy">{overviewCopy}</p>
+              <h2 className="summary-title">概览</h2>
             </div>
 
             {!hasLoadedRecords && blockingErrorMessage ? (
@@ -548,14 +538,14 @@ export default function App() {
               <>
                 <div className="summary-grid">
                   {summaryCards.map((card) => (
-                    <article key={card.label} className="summary-card" aria-label={`${card.label} ${card.value}`}>
+                    <article key={card.label} className="summary-card" aria-label={`${card.ariaLabel} ${card.value}`}>
                       <span className="summary-card-label">{card.label}</span>
                       <strong className="summary-card-value">{card.value}</strong>
                     </article>
                   ))}
                 </div>
 
-                <section className="summary-section">
+                <section className="summary-section" aria-label="最近待处理">
                   <div className="summary-section-head">
                     <span>最近待处理</span>
                     <span>最多 {SUMMARY_ITEM_LIMIT} 条</span>
@@ -564,7 +554,6 @@ export default function App() {
                   {recentPendingHomeworks.length === 0 ? (
                     <div className="summary-empty">
                       <p>今天没有待处理项。</p>
-                      <span>可以切到记录里回看已经完成的内容。</span>
                     </div>
                   ) : (
                     <div className="summary-list">
@@ -588,12 +577,12 @@ export default function App() {
                   )}
                 </section>
 
-                <section className="summary-section">
+                <section className="summary-section compact" aria-label={summaryFocusLabel}>
                   <div className="summary-section-head">
-                    <span>{isTodayView ? "当前聚焦今日清单" : "当前聚焦历史记录"}</span>
+                    <span>{summaryFocusLabel}</span>
                     <span>{listTitle}</span>
                   </div>
-                  <p className="summary-copy">{listMeta}</p>
+                  <p className="summary-section-copy">{listMeta}</p>
                 </section>
               </>
             )}

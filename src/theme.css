@@ -1,60 +1,65 @@
 :root {
   color-scheme: light;
-  font-family: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans SC", sans-serif;
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  --page: #f7f1e9;
-  --page-accent: rgba(252, 247, 240, 0.97);
-  --glass-panel: rgba(251, 246, 239, 0.97);
-  --glass-panel-strong: rgba(255, 251, 245, 0.99);
-  --glass-panel-soft: rgba(247, 239, 229, 0.92);
-  --glass-chip: rgba(244, 235, 223, 0.84);
-  --glass-chip-strong: rgba(239, 229, 216, 0.9);
-  --glass-stroke: rgba(118, 95, 76, 0.14);
-  --glass-stroke-soft: rgba(118, 95, 76, 0.08);
-  --glass-shadow: 0 16px 34px rgba(108, 83, 60, 0.09);
-  --glass-shadow-soft: 0 8px 18px rgba(108, 83, 60, 0.06);
-  --text: #322a24;
-  --text-soft: #7c7067;
-  --text-faint: #a09389;
-  --action: #625046;
-  --action-hover: #59483f;
-  --ghost: rgba(244, 235, 223, 0.68);
-  --ghost-hover: rgba(239, 229, 216, 0.82);
-  --warn: #845c57;
-  --warn-soft: rgba(201, 166, 150, 0.22);
-  --done: #6c7460;
-  --done-soft: rgba(187, 196, 174, 0.22);
-  --paper-highlight: rgba(255, 252, 247, 0.78);
-  --paper-border-strong: rgba(118, 95, 76, 0.18);
-  --paper-field: rgba(252, 247, 241, 0.98);
-  --paper-field-focus: #fffaf5;
-  --paper-overlay: rgba(117, 96, 76, 0.1);
-  --paper-shadow-ambient: 0 22px 40px rgba(95, 71, 49, 0.09);
-  --paper-scrollbar: rgba(132, 108, 86, 0.22);
-  --loader-aura-primary: rgba(255, 240, 223, 0.86);
-  --loader-aura-secondary: rgba(209, 167, 126, 0.28);
-  --loader-sheet-back: rgba(244, 235, 223, 0.76);
-  --loader-sheet-middle: rgba(250, 244, 236, 0.92);
-  --loader-sheet-front: rgba(255, 251, 245, 0.98);
-  --loader-sheet-border: rgba(118, 95, 76, 0.14);
-  --loader-line: rgba(160, 143, 127, 0.28);
-  --loader-line-strong: rgba(98, 80, 70, 0.4);
-  --loader-seal-start: #9a7a62;
-  --loader-seal-end: #6f5847;
-  --loader-progress-track: rgba(239, 229, 216, 0.92);
-  --loader-progress-start: rgba(147, 117, 89, 0.92);
-  --loader-progress-mid: rgba(184, 150, 116, 0.76);
-  --loader-progress-end: rgba(98, 80, 70, 0.9);
-  --loader-glint: rgba(255, 251, 245, 0.72);
-  --loader-shadow: 0 18px 36px rgba(95, 71, 49, 0.12);
-  --loader-shadow-soft: 0 12px 24px rgba(95, 71, 49, 0.08);
-  --loader-panel-background: rgba(252, 247, 240, 0.78);
-  --loader-panel-border: rgba(118, 95, 76, 0.1);
-  --loader-copy: #6e6056;
-  --loader-caption: #7c7067;
+  text-rendering: auto;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  --page: #edf3f8;
+  --page-accent: rgba(245, 249, 252, 0.96);
+  --glass-panel: rgba(248, 250, 252, 0.98);
+  --glass-panel-strong: rgba(252, 253, 255, 1);
+  --glass-panel-soft: rgba(243, 247, 250, 0.98);
+  --glass-chip: #e9eff4;
+  --glass-chip-strong: #dde7f0;
+  --glass-stroke: rgba(88, 104, 122, 0.18);
+  --glass-stroke-soft: rgba(88, 104, 122, 0.12);
+  --glass-shadow: 0 18px 40px rgba(24, 37, 50, 0.08);
+  --glass-shadow-soft: 0 8px 18px rgba(24, 37, 50, 0.06);
+  --text: #182330;
+  --text-soft: #5b6978;
+  --text-faint: #798694;
+  --action: #36536d;
+  --action-hover: #2b465d;
+  --ghost: #eef3f7;
+  --ghost-hover: #e4ebf2;
+  --warn: #8a6369;
+  --warn-soft: #f2e6e8;
+  --done: #607467;
+  --done-soft: #e6eee9;
+  --paper-highlight: rgba(255, 255, 255, 0.68);
+  --paper-border-strong: rgba(73, 98, 123, 0.28);
+  --paper-field: #f8fbfd;
+  --paper-field-focus: #ffffff;
+  --paper-overlay: rgba(18, 29, 40, 0.2);
+  --paper-shadow-ambient: 0 24px 50px rgba(18, 29, 40, 0.16);
+  --paper-scrollbar: rgba(88, 104, 122, 0.3);
+  --surface-muted: #f3f7fa;
+  --surface-muted-strong: #eef3f7;
+  --surface-outline: rgba(255, 255, 255, 0.74);
+  --focus-ring: rgba(74, 100, 126, 0.16);
+  --loader-aura-primary: rgba(68, 100, 132, 0.1);
+  --loader-aura-secondary: rgba(122, 148, 173, 0.12);
+  --loader-sheet-back: #e6edf4;
+  --loader-sheet-middle: #eef4f8;
+  --loader-sheet-front: #f8fbfd;
+  --loader-sheet-border: rgba(88, 104, 122, 0.18);
+  --loader-line: rgba(116, 136, 156, 0.18);
+  --loader-line-strong: rgba(54, 82, 107, 0.42);
+  --loader-seal-start: #5d7896;
+  --loader-seal-end: #42627f;
+  --loader-progress-track: #e1e9f1;
+  --loader-progress-start: #5d7896;
+  --loader-progress-mid: #4e6882;
+  --loader-progress-end: #425974;
+  --loader-glint: rgba(255, 255, 255, 0);
+  --loader-shadow: 0 14px 28px rgba(24, 37, 50, 0.1);
+  --loader-shadow-soft: 0 8px 18px rgba(24, 37, 50, 0.08);
+  --loader-panel-background: rgba(248, 250, 252, 0.92);
+  --loader-panel-border: rgba(88, 104, 122, 0.14);
+  --loader-copy: #4f5f71;
+  --loader-caption: #6a7886;
 }
 
 * {
@@ -72,6 +77,7 @@ body {
   min-height: 100vh;
   background: var(--page);
   color: var(--text);
+  line-height: 1.5;
 }
 
 button,
@@ -102,22 +108,23 @@ button {
 
 .warm-loader-aura {
   border-radius: 999px;
-  filter: blur(18px);
-  opacity: 0.82;
-  animation: warmLoaderBreath 2.8s ease-in-out infinite;
+  opacity: 0.7;
+  animation: warmLoaderBreath 3.2s ease-in-out infinite;
 }
 
 .warm-loader-aura-primary {
-  width: 156px;
-  height: 156px;
+  width: 148px;
+  height: 148px;
   background: var(--loader-aura-primary);
+  border: 1px solid rgba(93, 120, 150, 0.12);
 }
 
 .warm-loader-aura-secondary {
-  width: 112px;
-  height: 112px;
+  width: 104px;
+  height: 104px;
   background: var(--loader-aura-secondary);
-  animation-delay: 0.24s;
+  border: 1px solid rgba(122, 148, 173, 0.14);
+  animation-delay: 0.2s;
 }
 
 .warm-loader-stack {
@@ -161,27 +168,16 @@ button {
   gap: 11px;
   overflow: hidden;
   transform: translate(-50%, -50%);
-  background: linear-gradient(180deg, var(--loader-sheet-front), rgba(249, 242, 233, 0.98));
-  box-shadow: var(--loader-shadow), inset 0 1px 0 var(--paper-highlight);
+  background: var(--loader-sheet-front);
+  box-shadow: var(--loader-shadow);
 }
 
 .warm-loader-sheet-front::before {
-  content: "";
-  position: absolute;
-  inset: -42% auto auto -14%;
-  width: 88px;
-  height: 88px;
-  border-radius: 999px;
-  background: radial-gradient(circle, var(--loader-glint), transparent 70%);
+  content: none;
 }
 
 .warm-loader-sheet-front::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, transparent 14%, rgba(255, 255, 255, 0.42) 34%, transparent 54%);
-  transform: translateX(-135%);
-  animation: warmLoaderShimmer 3s ease-in-out infinite;
+  content: none;
 }
 
 .warm-loader-seal {
@@ -189,8 +185,9 @@ button {
   width: 40px;
   height: 40px;
   border-radius: 16px;
-  background: linear-gradient(180deg, var(--loader-seal-start), var(--loader-seal-end));
-  box-shadow: 0 10px 18px rgba(98, 80, 70, 0.18);
+  background: var(--loader-seal-end);
+  border: 1px solid rgba(66, 98, 127, 0.16);
+  box-shadow: 0 6px 14px rgba(24, 37, 50, 0.1);
 }
 
 .warm-loader-seal::before {
@@ -198,7 +195,7 @@ button {
   position: absolute;
   inset: 9px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 251, 245, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.42);
 }
 
 .warm-loader-line {
@@ -228,7 +225,6 @@ button {
   overflow: hidden;
   border-radius: 999px;
   background: var(--loader-progress-track);
-  box-shadow: inset 0 1px 0 rgba(255, 251, 245, 0.46);
 }
 
 .warm-loader-progress-bar {
@@ -236,17 +232,13 @@ button {
   width: 68%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--loader-progress-start), var(--loader-progress-mid), var(--loader-progress-end));
+  background: var(--loader-progress-end);
   transform-origin: left center;
   animation: warmLoaderSweep 1.8s ease-in-out infinite;
 }
 
 .warm-loader-progress-bar::after {
-  content: "";
-  inset: 0;
-  background: linear-gradient(120deg, transparent 8%, rgba(255, 251, 245, 0.62) 42%, transparent 72%);
-  transform: translateX(-100%);
-  animation: warmLoaderBarShimmer 1.8s ease-in-out infinite;
+  content: none;
 }
 
 @keyframes warmLoaderBreath {
@@ -273,18 +265,6 @@ button {
   }
 }
 
-@keyframes warmLoaderShimmer {
-  0%,
-  16% {
-    transform: translateX(-135%);
-  }
-
-  46%,
-  100% {
-    transform: translateX(140%);
-  }
-}
-
 @keyframes warmLoaderSweep {
   0%,
   100% {
@@ -303,24 +283,10 @@ button {
   }
 }
 
-@keyframes warmLoaderBarShimmer {
-  0%,
-  16% {
-    transform: translateX(-100%);
-  }
-
-  62%,
-  100% {
-    transform: translateX(160%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .warm-loader-aura,
   .warm-loader-stack,
-  .warm-loader-sheet-front::after,
-  .warm-loader-progress-bar,
-  .warm-loader-progress-bar::after {
+  .warm-loader-progress-bar {
     animation-duration: 0.01ms;
     animation-iteration-count: 1;
   }
