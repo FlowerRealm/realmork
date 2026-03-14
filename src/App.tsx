@@ -2,7 +2,7 @@ import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "r
 import "./styles.css";
 import { createHomework, deleteHomework, getDailyQuote, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
 import { getBackendState, retryBackendStart, subscribeBackendState, type BackendState } from "./lib/backend";
-import { millisecondsUntilNextBeijingMidnight } from "./lib/format";
+import { formatDateTime, millisecondsUntilNextBeijingMidnight } from "./lib/format";
 import { removeHomework, sortRecordHomeworks, sortTodayHomeworks, upsertHomework, withDerivedHomeworkState } from "./lib/homework";
 import type { DailyQuote, Homework, HomeworkPayload, ViewMode } from "./lib/types";
 import { FloatingTopbar } from "./components/FloatingTopbar";
@@ -10,6 +10,7 @@ import { HomeworkCard } from "./components/HomeworkCard";
 import { HomeworkModal } from "./components/HomeworkModal";
 
 const TODAY_CAPACITY = 10;
+const SUMMARY_ITEM_LIMIT = 3;
 const FOCUS_REFRESH_THRESHOLD = 60_000;
 const REFRESH_INTERVAL_MS = 30_000;
 const initialBackendState: BackendState = {
@@ -60,6 +61,18 @@ function resolveBackendState(current: BackendState, next: BackendState, source: 
   }
 
   return next;
+}
+
+function getHomeworkFocusLabel(homework: Homework): string {
+  if (homework.needsSubmission) {
+    return "要交";
+  }
+
+  if (homework.isOverdue) {
+    return "逾期";
+  }
+
+  return "待办";
 }
 
 function millisecondsUntilNextMinute(now: Date): number {
@@ -321,6 +334,11 @@ export default function App() {
     { label: "紧急", ariaLabel: "需立即处理", value: attentionCount },
     { label: "总数", ariaLabel: "记录总数", value: sortedRecordHomeworks.length }
   ];
+  const recentPendingHomeworks = useMemo(
+    () => sortedTodayHomeworks.filter((homework) => !homework.submitted).slice(0, SUMMARY_ITEM_LIMIT),
+    [sortedTodayHomeworks]
+  );
+  const summaryFocusLabel = isTodayView ? "当前聚焦今日清单" : "当前聚焦历史记录";
 
   const bannerMessage =
     backendState.status === "error" && hasLoadedRecords
@@ -517,14 +535,56 @@ export default function App() {
                 <p>{blockingLabel}</p>
               </div>
             ) : (
-              <div className="summary-grid">
-                {summaryCards.map((card) => (
-                  <article key={card.label} className="summary-card" aria-label={`${card.ariaLabel} ${card.value}`}>
-                    <span className="summary-card-label">{card.label}</span>
-                    <strong className="summary-card-value">{card.value}</strong>
-                  </article>
-                ))}
-              </div>
+              <>
+                <div className="summary-grid">
+                  {summaryCards.map((card) => (
+                    <article key={card.label} className="summary-card" aria-label={`${card.ariaLabel} ${card.value}`}>
+                      <span className="summary-card-label">{card.label}</span>
+                      <strong className="summary-card-value">{card.value}</strong>
+                    </article>
+                  ))}
+                </div>
+
+                <section className="summary-section" aria-label="最近待处理">
+                  <div className="summary-section-head">
+                    <span>最近待处理</span>
+                    <span>最多 {SUMMARY_ITEM_LIMIT} 条</span>
+                  </div>
+
+                  {recentPendingHomeworks.length === 0 ? (
+                    <div className="summary-empty">
+                      <p>今天没有待处理项。</p>
+                    </div>
+                  ) : (
+                    <div className="summary-list">
+                      {recentPendingHomeworks.map((homework) => (
+                        <article key={homework.id} className="summary-item">
+                          <div className="summary-item-top">
+                            <span className="summary-item-subject">{homework.subject}</span>
+                            <span
+                              className={homework.needsSubmission || homework.isOverdue ? "summary-pill urgent" : "summary-pill"}
+                            >
+                              {getHomeworkFocusLabel(homework)}
+                            </span>
+                          </div>
+                          <p className="summary-item-content">{homework.content}</p>
+                          <time className="summary-item-date" dateTime={homework.dueAt}>
+                            截止 {formatDateTime(homework.dueAt)}
+                          </time>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="summary-section compact" aria-label={summaryFocusLabel}>
+                  <div className="summary-section-head">
+                    <span>{summaryFocusLabel}</span>
+                    <span>{listTitle}</span>
+                  </div>
+                  <p className="summary-section-copy">{listMeta}</p>
+                </section>
+              </>
             )}
           </aside>
         </div>

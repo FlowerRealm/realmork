@@ -454,11 +454,11 @@ describe("App", () => {
     expect(within(summaryPanel).getByLabelText("需立即处理 2")).toBeInTheDocument();
     expect(within(summaryPanel).getByLabelText("记录总数 5")).toBeInTheDocument();
     expect(within(summaryPanel).getByLabelText("今日总数 5")).toBeInTheDocument();
-    expect(within(summaryPanel).queryByText("最近待处理")).not.toBeInTheDocument();
-    expect(within(summaryPanel).queryByText("当前聚焦今日清单")).not.toBeInTheDocument();
-    expect(within(summaryPanel).queryByText("补交实验")).not.toBeInTheDocument();
-    expect(within(summaryPanel).queryByText("先交作文")).not.toBeInTheDocument();
-    expect(within(summaryPanel).queryByText("数学卷")).not.toBeInTheDocument();
+    expect(within(summaryPanel).getByText("最近待处理")).toBeInTheDocument();
+    expect(within(summaryPanel).getByLabelText("当前聚焦今日清单")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("补交实验")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("先交作文")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("数学卷")).toBeInTheDocument();
     expect(within(summaryPanel).queryByText("英语背诵")).not.toBeInTheDocument();
   });
 
@@ -498,10 +498,13 @@ describe("App", () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([buildHomework(1, { dueAt: "2026-03-12T08:00:00+08:00" })]);
     vi.mocked(api.submitHomework).mockResolvedValue(buildHomework(1, { submitted: true, submittedAt: "2026-03-12T09:00:00+08:00" }));
 
-    render(<App />);
+    const { container } = render(<App />);
     await flushMicrotasks();
 
-    expect(screen.getByText("要交")).toBeInTheDocument();
+    const listPanel = container.querySelector(".list-panel");
+
+    expect(listPanel).not.toBeNull();
+    expect(within(listPanel as HTMLElement).getByText("要交")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交" })).toBeInTheDocument();
   });
 
