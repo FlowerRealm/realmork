@@ -139,7 +139,7 @@ describe("App", () => {
     expect(api.listHomeworks).toHaveBeenCalledWith("records");
   });
 
-  it("keeps glass layout containers for page, summary and modal", async () => {
+  it("keeps the refreshed layout containers for page, summary and modal", async () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
     const user = userEvent.setup();
 
