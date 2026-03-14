@@ -16,8 +16,12 @@ describe("electron boot page", () => {
 
   it("drops the old warm glass effects from the standalone loader", () => {
     expect(bootHtml).not.toContain("filter: blur(");
-    expect(bootHtml).not.toContain("linear-gradient(");
-    expect(bootHtml).not.toContain("radial-gradient(");
+    expect(bootHtml).not.toContain("--loader-progress-start:");
+    expect(bootHtml).not.toContain("--loader-progress-mid:");
+    expect(bootHtml).not.toContain("--loader-glint:");
+    expect(bootHtml).not.toContain("--paper-highlight:");
+    expect(bootHtml).toContain("background: var(--page);");
+    expect(bootHtml).toContain("--loader-progress-fill:");
   });
 
   it("matches the initial window background to the cold boot page", () => {
