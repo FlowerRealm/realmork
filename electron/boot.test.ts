@@ -1,8 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
-
-const bootHtml = fs.readFileSync(path.join(process.cwd(), "electron", "boot.html"), "utf8");
-const mainProcessSource = fs.readFileSync(path.join(process.cwd(), "electron", "main.js"), "utf8");
+import bootHtml from "./boot.html?raw";
+import mainProcessSource from "./main.js?raw";
 
 describe("electron boot page", () => {
   it("uses the refreshed copy and crisp font rendering defaults", () => {
