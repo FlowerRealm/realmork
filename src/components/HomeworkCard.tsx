@@ -11,12 +11,12 @@ type HomeworkCardProps = {
 
 export function HomeworkCard({ homework, fullDate = false, onEdit, onDelete, onToggleSubmitted }: HomeworkCardProps) {
   const statusLabel = homework.needsSubmission
-    ? "需要提交"
+    ? "要交"
     : homework.submitted
-      ? "已提交"
+      ? "已交"
       : homework.isToday
-        ? "今日待办"
-        : "未提交";
+        ? "待办"
+        : "未交";
 
   const statusClass = homework.needsSubmission ? "status-badge urgent" : homework.submitted ? "status-badge done" : "status-badge";
   const dueLabel = fullDate ? formatFullDateTime(homework.dueAt) : formatDateTime(homework.dueAt);
