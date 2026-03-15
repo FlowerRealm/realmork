@@ -76,6 +76,7 @@ type MockedBackend = typeof backend & {
 
 const mockedBackend = backend as MockedBackend;
 const subjectCycle = ["语文", "数学", "英语", "物理", "化学", "生物"] as const;
+let clientHeightSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 async function flushMicrotasks() {
   await act(async () => {
@@ -111,14 +112,43 @@ function buildHomework(index: number, overrides: Partial<Homework> = {}): Homewo
   };
 }
 
+function getHomeworkCard(index = 0): HTMLElement {
+  const cards = document.querySelectorAll<HTMLElement>(".homework-card");
+  const card = cards.item(index);
+
+  if (!card) {
+    throw new Error(`missing homework card at index ${index}`);
+  }
+
+  return card;
+}
+
+async function openHomeworkMenu(card?: HTMLElement): Promise<HTMLElement> {
+  const resolvedCard =
+    card ??
+    (await waitFor(() => {
+      const nextCard = document.querySelector<HTMLElement>(".homework-card");
+      expect(nextCard).not.toBeNull();
+      return nextCard as HTMLElement;
+    }));
+
+  fireEvent.click(within(resolvedCard).getByRole("button", { name: /更多操作/ }));
+  return within(resolvedCard).getByRole("menu");
+}
+
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedBackend.__resetBackendState();
     vi.mocked(api.getDailyQuote).mockResolvedValue(buildDailyQuote());
+    clientHeightSpy = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("list-items") ? 600 : 0;
+    });
   });
 
   afterEach(() => {
+    clientHeightSpy?.mockRestore();
+    clientHeightSpy = null;
     vi.useRealTimers();
   });
 
@@ -152,7 +182,7 @@ describe("App", () => {
     expect(container.querySelector(".dashboard-layout")).not.toBeNull();
     expect(container.querySelector(".list-panel")).not.toBeNull();
     expect(container.querySelector(".summary-panel")).not.toBeNull();
-    expect(container.querySelector(".summary-grid")).not.toBeNull();
+    expect(container.querySelector(".summary-metrics")).not.toBeNull();
 
     await user.click(await screen.findByRole("button", { name: "新增作业" }));
 
@@ -317,7 +347,8 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("按截止")).toBeInTheDocument();
+    const listPanel = await screen.findByText("今日作业");
+    expect(within(listPanel.closest(".list-panel") as HTMLElement).getByText("按截止")).toBeInTheDocument();
     expect(screen.getByLabelText("当前日期与每日一言")).toBeInTheDocument();
     expect(screen.queryByText("“学而不思则罔，思而不学则殆。”")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
@@ -405,7 +436,7 @@ describe("App", () => {
     expect(screen.getByText("- 老子")).toBeInTheDocument();
   });
 
-  it("shows summary metrics in a compact side panel", async () => {
+  it("shows condensed summary info in a compact side panel", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     const urgentHomework = buildHomework(1, {
@@ -452,13 +483,12 @@ describe("App", () => {
 
     expect(within(summaryPanel).getByLabelText("待提交 4")).toBeInTheDocument();
     expect(within(summaryPanel).getByLabelText("需立即处理 2")).toBeInTheDocument();
-    expect(within(summaryPanel).getByLabelText("记录总数 5")).toBeInTheDocument();
-    expect(within(summaryPanel).getByLabelText("今日总数 5")).toBeInTheDocument();
-    expect(within(summaryPanel).getByText("最近待处理")).toBeInTheDocument();
-    expect(within(summaryPanel).getByLabelText("当前聚焦今日清单")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("当前 今日作业")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("按截止")).toBeInTheDocument();
+    expect(within(summaryPanel).getByText("待处理")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("补交实验")).toBeInTheDocument();
     expect(within(summaryPanel).getByText("先交作文")).toBeInTheDocument();
-    expect(within(summaryPanel).getByText("数学卷")).toBeInTheDocument();
+    expect(within(summaryPanel).queryByText("数学卷")).not.toBeInTheDocument();
     expect(within(summaryPanel).queryByText("英语背诵")).not.toBeInTheDocument();
   });
 
@@ -521,7 +551,7 @@ describe("App", () => {
     });
   });
 
-  it("limits today cards to 10 and shows overflow hint", async () => {
+  it("sizes today homework rows from viewport height without hiding extra items", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue(Array.from({ length: 12 }, (_, index) => buildHomework(index + 1)));
@@ -529,26 +559,60 @@ describe("App", () => {
     const { container } = render(<App />);
     await flushMicrotasks();
     const listPanel = container.querySelector(".list-panel");
+    const listContent = container.querySelector(".list-items-content");
+    const firstCard = container.querySelector(".homework-card");
 
     expect(listPanel).not.toBeNull();
-    expect(within(listPanel as HTMLElement).getByText("+2")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "提交" })).toHaveLength(10);
+    expect(listContent).toHaveAttribute("data-list-layout", "row");
+    expect((listContent as HTMLElement).style.getPropertyValue("--row-height")).toBe("44px");
+    expect((listContent as HTMLElement).style.getPropertyValue("--row-gap")).toBe("6px");
+    expect(firstCard).toHaveClass("row-layout");
+    expect(firstCard?.querySelector(".item-bottom")).toBeNull();
+    expect(within(listPanel as HTMLElement).queryByText("+2")).not.toBeInTheDocument();
+    expect(within(listPanel as HTMLElement).getAllByRole("button", { name: /更多操作/ })).toHaveLength(12);
   });
 
-  it("switches labels and action for urgent homework", async () => {
+  it("caps row height so a single homework does not grow too much", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([buildHomework(1)]);
+
+    const { container } = render(<App />);
+    await flushMicrotasks();
+
+    const listContent = container.querySelector(".list-items-content");
+
+    expect(listContent).toHaveAttribute("data-list-layout", "row");
+    expect((listContent as HTMLElement).style.getPropertyValue("--row-height")).toBe("96px");
+  });
+
+  it("highlights urgent homework across the card and summary item", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue([buildHomework(1, { dueAt: "2026-03-12T08:00:00+08:00" })]);
     vi.mocked(api.submitHomework).mockResolvedValue(buildHomework(1, { submitted: true, submittedAt: "2026-03-12T09:00:00+08:00" }));
+    const user = userEvent.setup();
 
     const { container } = render(<App />);
     await flushMicrotasks();
 
     const listPanel = container.querySelector(".list-panel");
+    const summaryPanel = container.querySelector(".summary-panel");
 
     expect(listPanel).not.toBeNull();
-    expect(within(listPanel as HTMLElement).getByText("要交")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "提交" })).toBeInTheDocument();
+    expect(summaryPanel).not.toBeNull();
+
+    const urgentCard = container.querySelector(".homework-card");
+    const urgentMenu = await openHomeworkMenu(urgentCard as HTMLElement);
+    const urgentBadge = within(urgentMenu).getByText("要交");
+    const summaryBadge = within(summaryPanel as HTMLElement).getByText("要交");
+    const summaryItem = within(summaryPanel as HTMLElement).getByText("作业内容 1").closest(".summary-item");
+
+    expect(urgentBadge).toHaveClass("status-badge", "attention");
+    expect(urgentCard).toHaveClass("homework-card", "attention");
+    expect(summaryBadge).toHaveClass("summary-pill", "attention");
+    expect(summaryItem).toHaveClass("summary-item", "attention");
+    expect(within(urgentMenu).getByRole("menuitem", { name: "提交" })).toBeInTheDocument();
   });
 
   it("updates submitted state without reloading the full records list", async () => {
@@ -564,13 +628,21 @@ describe("App", () => {
     render(<App />);
 
     await user.click(await screen.findByRole("button", { name: "记录" }));
-    await user.click(await screen.findByRole("button", { name: "提交" }));
+    await user.click(within(await openHomeworkMenu()).getByRole("menuitem", { name: "提交" }));
 
     await waitFor(() => {
       expect(api.submitHomework).toHaveBeenCalledWith(homework.id);
     });
     expect(api.listHomeworks).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("已交")).toBeInTheDocument();
+
+    const doneCard = getHomeworkCard();
+    const doneMenu = await openHomeworkMenu(doneCard);
+    const doneBadge = within(doneMenu).getByText("已交");
+
+    expect(doneBadge).toHaveClass("status-badge", "done");
+    expect(doneCard).toHaveClass("homework-card");
+    expect(doneCard).not.toHaveClass("attention");
+    expect(within(doneMenu).getByRole("menuitem", { name: "撤回" })).toBeInTheDocument();
   });
 
   it("shows single-line empty states", async () => {
@@ -597,7 +669,7 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: "删除" }));
+    await user.click(within(await openHomeworkMenu()).getByRole("menuitem", { name: "删除" }));
 
     expect(confirmSpy).toHaveBeenCalledWith(`确认删除“${homework.subject}”作业？删除后无法恢复。`);
     await waitFor(() => {
@@ -616,7 +688,7 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: "删除" }));
+    await user.click(within(await openHomeworkMenu()).getByRole("menuitem", { name: "删除" }));
 
     expect(api.deleteHomework).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
@@ -639,7 +711,7 @@ describe("App", () => {
     render(<App />);
 
     await user.click(await screen.findByRole("button", { name: "记录" }));
-    await user.click(await screen.findByRole("button", { name: "编辑" }));
+    await user.click(within(await openHomeworkMenu()).getByRole("menuitem", { name: "编辑" }));
 
     const textbox = screen.getByRole("textbox", { name: /作业内容/i });
     await user.clear(textbox);
@@ -668,7 +740,7 @@ describe("App", () => {
     render(<App />);
 
     await user.click(await screen.findByRole("button", { name: "记录" }));
-    await user.click(await screen.findByRole("button", { name: "编辑" }));
+    await user.click(within(await openHomeworkMenu()).getByRole("menuitem", { name: "编辑" }));
 
     const select = screen.getByRole("combobox", { name: "学科" });
     expect(select).toHaveValue("");

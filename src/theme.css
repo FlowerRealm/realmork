@@ -28,6 +28,13 @@
   --warn-soft: #f2e6e8;
   --done: #607467;
   --done-soft: #e6eee9;
+  --attention-surface: #f3e8de;
+  --attention-surface-strong: #ebdccd;
+  --attention-border: rgba(133, 101, 71, 0.22);
+  --attention-shadow: rgba(106, 78, 53, 0.12);
+  --attention-text: #6a4e35;
+  --attention-muted: #8a7059;
+  --attention-badge: rgba(106, 78, 53, 0.12);
   --paper-highlight: rgba(255, 255, 255, 0.68);
   --paper-border-strong: rgba(73, 98, 123, 0.28);
   --paper-field: #f8fbfd;

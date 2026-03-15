@@ -1,16 +1,25 @@
-import { startTransition, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from "react";
 import "./styles.css";
 import { createHomework, deleteHomework, getDailyQuote, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
 import { getBackendState, retryBackendStart, subscribeBackendState, type BackendState } from "./lib/backend";
 import { formatDateTime, millisecondsUntilNextBeijingMidnight } from "./lib/format";
-import { removeHomework, sortRecordHomeworks, sortTodayHomeworks, upsertHomework, withDerivedHomeworkState } from "./lib/homework";
+import {
+  HOMEWORK_ROW_GAP_PX,
+  HOMEWORK_ROW_HEIGHT_MAX_PX,
+  getHomeworkRowHeight,
+  getHomeworkTone,
+  removeHomework,
+  sortRecordHomeworks,
+  sortTodayHomeworks,
+  upsertHomework,
+  withDerivedHomeworkState
+} from "./lib/homework";
 import type { DailyQuote, Homework, HomeworkPayload, ViewMode } from "./lib/types";
 import { FloatingTopbar } from "./components/FloatingTopbar";
 import { HomeworkCard } from "./components/HomeworkCard";
 import { HomeworkModal } from "./components/HomeworkModal";
 
-const TODAY_CAPACITY = 10;
-const SUMMARY_ITEM_LIMIT = 3;
+const SUMMARY_ITEM_LIMIT = 2;
 const FOCUS_REFRESH_THRESHOLD = 60_000;
 const REFRESH_INTERVAL_MS = 30_000;
 const initialBackendState: BackendState = {
@@ -93,6 +102,8 @@ export default function App() {
   const [editingHomework, setEditingHomework] = useState<Homework | null>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [rowHeight, setRowHeight] = useState(HOMEWORK_ROW_HEIGHT_MAX_PX);
+  const listViewportRef = useRef<HTMLDivElement | null>(null);
 
   const hasLoadedRecords = lastSyncedAt !== null;
 
@@ -310,35 +321,24 @@ export default function App() {
     [decoratedRecords]
   );
 
-  const visibleTodayHomeworks = useMemo(
-    () => sortedTodayHomeworks.slice(0, TODAY_CAPACITY),
-    [sortedTodayHomeworks]
-  );
-  const hiddenCount = Math.max(sortedTodayHomeworks.length - visibleTodayHomeworks.length, 0);
   const isTodayView = viewMode === "today";
-  const currentItems = isTodayView ? visibleTodayHomeworks : sortedRecordHomeworks;
+  const currentItems = isTodayView ? sortedTodayHomeworks : sortedRecordHomeworks;
   const listTitle = isTodayView ? "今日作业" : "全部记录";
-  const listMetaBase = isTodayView
-    ? hiddenCount > 0
-      ? `+${hiddenCount}`
-      : "按截止"
-    : "最新在前";
+  const listMetaBase = isTodayView ? "按截止" : "最新在前";
   const listMeta = refreshing ? "同步中" : listMetaBase;
   const todayPendingCount = sortedTodayHomeworks.filter((homework) => !homework.submitted).length;
   const attentionCount = sortedTodayHomeworks.filter(
     (homework) => !homework.submitted && (homework.needsSubmission || homework.isOverdue)
   ).length;
-  const summaryCards = [
-    { label: "今日", ariaLabel: "今日总数", value: sortedTodayHomeworks.length },
+  const summaryStats = [
     { label: "待交", ariaLabel: "待提交", value: todayPendingCount },
-    { label: "紧急", ariaLabel: "需立即处理", value: attentionCount },
-    { label: "总数", ariaLabel: "记录总数", value: sortedRecordHomeworks.length }
+    { label: "紧急", ariaLabel: "需立即处理", value: attentionCount, tone: attentionCount > 0 ? "attention" : "default" }
   ];
   const recentPendingHomeworks = useMemo(
     () => sortedTodayHomeworks.filter((homework) => !homework.submitted).slice(0, SUMMARY_ITEM_LIMIT),
     [sortedTodayHomeworks]
   );
-  const summaryFocusLabel = isTodayView ? "当前聚焦今日清单" : "当前聚焦历史记录";
+  const summaryMeta = `当前 ${listTitle}`;
 
   const bannerMessage =
     backendState.status === "error" && hasLoadedRecords
@@ -348,6 +348,58 @@ export default function App() {
         : "";
   const blockingLabel = backendState.status === "starting" ? "本地服务启动中" : "作业数据加载中";
   const blockingErrorMessage = backendState.status === "error" ? backendState.error : error;
+  const listContentStyle = useMemo(
+    () =>
+      ({
+        "--row-height": `${rowHeight}px`,
+        "--row-gap": `${HOMEWORK_ROW_GAP_PX}px`
+      }) as CSSProperties,
+    [rowHeight]
+  );
+
+  useEffect(() => {
+    const viewport = listViewportRef.current;
+    if (!viewport) {
+      setRowHeight(HOMEWORK_ROW_HEIGHT_MAX_PX);
+      return;
+    }
+
+    let frame = 0;
+    const updateRowHeight = () => {
+      frame = 0;
+      const nextRowHeight = getHomeworkRowHeight(
+        viewport.clientHeight,
+        currentItems.length,
+        HOMEWORK_ROW_HEIGHT_MAX_PX,
+        HOMEWORK_ROW_GAP_PX
+      );
+      setRowHeight((current) => (current === nextRowHeight ? current : nextRowHeight));
+    };
+
+    updateRowHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (frame !== 0) {
+        window.cancelAnimationFrame(frame);
+      }
+
+      frame = window.requestAnimationFrame(updateRowHeight);
+    });
+
+    observer.observe(viewport);
+
+    return () => {
+      if (frame !== 0) {
+        window.cancelAnimationFrame(frame);
+      }
+
+      observer.disconnect();
+    };
+  }, [currentItems.length, bannerMessage, blockingErrorMessage, hasLoadedRecords]);
 
   async function handleSave(payload: HomeworkPayload, existingId?: string) {
     setError("");
@@ -497,22 +549,28 @@ export default function App() {
             ) : !hasLoadedRecords ? (
               <LoadingState label={blockingLabel} />
             ) : (
-              <div className={`list-items ${isTodayView ? "today-items" : "records-items"}`}>
+              <div ref={listViewportRef} className="list-items">
                 {currentItems.length === 0 ? (
                   <article className="empty-card">
                     <h3>{isTodayView ? "今日无作业" : "暂无记录"}</h3>
                   </article>
                 ) : (
-                  currentItems.map((homework) => (
-                    <HomeworkCard
-                      key={homework.id}
-                      homework={homework}
-                      fullDate={!isTodayView}
-                      onEdit={openEditModal}
-                      onDelete={handleDelete}
-                      onToggleSubmitted={handleToggleSubmitted}
-                    />
-                  ))
+                  <div
+                    className={`list-items-content ${isTodayView ? "today-items" : "records-items"}`}
+                    data-list-layout="row"
+                    style={listContentStyle}
+                  >
+                    {currentItems.map((homework) => (
+                      <HomeworkCard
+                        key={homework.id}
+                        homework={homework}
+                        fullDate={!isTodayView}
+                        onEdit={openEditModal}
+                        onDelete={handleDelete}
+                        onToggleSubmitted={handleToggleSubmitted}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             )}
@@ -521,6 +579,10 @@ export default function App() {
           <aside className="summary-panel" aria-label="作业概览">
             <div className="summary-intro">
               <h2 className="summary-title">概览</h2>
+              <p className="summary-note">
+                <span>{summaryMeta}</span>
+                <span>{listMeta}</span>
+              </p>
             </div>
 
             {!hasLoadedRecords && blockingErrorMessage ? (
@@ -536,19 +598,23 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="summary-grid">
-                  {summaryCards.map((card) => (
-                    <article key={card.label} className="summary-card" aria-label={`${card.ariaLabel} ${card.value}`}>
-                      <span className="summary-card-label">{card.label}</span>
-                      <strong className="summary-card-value">{card.value}</strong>
+                <div className="summary-metrics">
+                  {summaryStats.map((stat) => (
+                    <article
+                      key={stat.label}
+                      className={stat.tone === "attention" ? "summary-stat attention" : "summary-stat"}
+                      aria-label={`${stat.ariaLabel} ${stat.value}`}
+                    >
+                      <span className="summary-stat-label">{stat.label}</span>
+                      <strong className="summary-stat-value">{stat.value}</strong>
                     </article>
                   ))}
                 </div>
 
                 <section className="summary-section" aria-label="最近待处理">
                   <div className="summary-section-head">
-                    <span>最近待处理</span>
-                    <span>最多 {SUMMARY_ITEM_LIMIT} 条</span>
+                    <span>待处理</span>
+                    <span>{recentPendingHomeworks.length} 条</span>
                   </div>
 
                   {recentPendingHomeworks.length === 0 ? (
@@ -557,32 +623,26 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="summary-list">
-                      {recentPendingHomeworks.map((homework) => (
-                        <article key={homework.id} className="summary-item">
-                          <div className="summary-item-top">
-                            <span className="summary-item-subject">{homework.subject}</span>
-                            <span
-                              className={homework.needsSubmission || homework.isOverdue ? "summary-pill urgent" : "summary-pill"}
-                            >
-                              {getHomeworkFocusLabel(homework)}
-                            </span>
-                          </div>
-                          <p className="summary-item-content">{homework.content}</p>
-                          <time className="summary-item-date" dateTime={homework.dueAt}>
-                            截止 {formatDateTime(homework.dueAt)}
-                          </time>
-                        </article>
-                      ))}
+                      {recentPendingHomeworks.map((homework) => {
+                        const tone = getHomeworkTone(homework);
+
+                        return (
+                          <article key={homework.id} className={tone === "attention" ? "summary-item attention" : "summary-item"}>
+                            <div className="summary-item-top">
+                              <span className="summary-item-subject">{homework.subject}</span>
+                              <span className={tone === "attention" ? "summary-pill attention" : "summary-pill"}>
+                                {getHomeworkFocusLabel(homework)}
+                              </span>
+                            </div>
+                            <p className="summary-item-content">{homework.content}</p>
+                            <time className="summary-item-date" dateTime={homework.dueAt}>
+                              截止 {formatDateTime(homework.dueAt)}
+                            </time>
+                          </article>
+                        );
+                      })}
                     </div>
                   )}
-                </section>
-
-                <section className="summary-section compact" aria-label={summaryFocusLabel}>
-                  <div className="summary-section-head">
-                    <span>{summaryFocusLabel}</span>
-                    <span>{listTitle}</span>
-                  </div>
-                  <p className="summary-section-copy">{listMeta}</p>
                 </section>
               </>
             )}

@@ -1,6 +1,10 @@
 import { getBeijingDateParts } from "./format";
 import type { Homework } from "./types";
 
+export type HomeworkTone = "default" | "attention" | "done";
+export const HOMEWORK_ROW_GAP_PX = 6;
+export const HOMEWORK_ROW_HEIGHT_MAX_PX = 96;
+
 function sameDay(left: Date, right: Date): boolean {
   const leftParts = getBeijingDateParts(left);
   const rightParts = getBeijingDateParts(right);
@@ -23,6 +27,33 @@ export function withDerivedHomeworkState(homework: Homework, now: Date): Homewor
     isOverdue,
     isToday
   };
+}
+
+export function getHomeworkTone(homework: Pick<Homework, "needsSubmission" | "submitted">): HomeworkTone {
+  if (homework.needsSubmission) {
+    return "attention";
+  }
+
+  if (homework.submitted) {
+    return "done";
+  }
+
+  return "default";
+}
+
+export function getHomeworkRowHeight(
+  viewportHeight: number,
+  itemCount: number,
+  maxRowHeightPx = HOMEWORK_ROW_HEIGHT_MAX_PX,
+  rowGapPx = HOMEWORK_ROW_GAP_PX
+): number {
+  if (viewportHeight <= 0 || itemCount <= 0) {
+    return maxRowHeightPx;
+  }
+
+  const gapBudget = rowGapPx * Math.max(itemCount - 1, 0);
+  const availableHeight = viewportHeight - gapBudget;
+  return Math.min(Math.max(Math.floor(availableHeight / itemCount), 1), maxRowHeightPx);
 }
 
 export function sortTodayHomeworks(items: Homework[]): Homework[] {
