@@ -31,20 +31,7 @@ function LoadingState({ label }: { label: string }) {
   return (
     <div className="panel-state loading-state" role="status" aria-label={label} aria-live="polite" aria-busy="true">
       <div className="warm-loader" aria-hidden="true">
-        <span className="warm-loader-aura warm-loader-aura-primary"></span>
-        <span className="warm-loader-aura warm-loader-aura-secondary"></span>
-        <div className="warm-loader-stack">
-          <span className="warm-loader-sheet warm-loader-sheet-back"></span>
-          <span className="warm-loader-sheet warm-loader-sheet-middle"></span>
-          <div className="warm-loader-sheet warm-loader-sheet-front">
-            <span className="warm-loader-seal"></span>
-            <span className="warm-loader-line warm-loader-line-title"></span>
-            <span className="warm-loader-line warm-loader-line-meta"></span>
-            <span className="warm-loader-progress">
-              <span className="warm-loader-progress-bar"></span>
-            </span>
-          </div>
-        </div>
+        <div className="warm-loader-stack"></div>
       </div>
       <p className="loading-caption">{label}</p>
     </div>
@@ -445,6 +432,39 @@ export default function App() {
     setModalOpen(true);
   }
 
+  const getHumorousCount = (count: number, mode: ViewMode) => {
+    if (mode === "records") return `📚 已封印 ${count} 个历史遗迹`;
+    const messages = [
+      "🎉 战壕已清空！你是全场最靓的仔，快去狂欢吧！",
+      "🎯 孤军奋战的最后一题，给它个华丽的谢幕！",
+      "👯 两个作业在讲悄悄话，快去拆散它们！",
+      "🥉 季军达成！离颁奖典礼（睡觉）只差临门一脚了！",
+      "🍀 四叶草的运气？不，是四份作业的暴击！",
+      "🖐️ 击个掌吧，虽然你还有五份作业没写完...",
+      "🎸 六六大顺？不，是六份作业在蹦迪！",
+      "🌈 七色光照在大地上，也照在你还没写的七份作业上。",
+      "♾️ 八个作业... 旋转 90 度就是无穷无尽的痛苦！",
+      "⏳ 九九归一，希望你做完这九个也能归于平静。",
+      "🔟 十全十美是不可能的，这十个作业倒是挺完美的。",
+      "🕯️ 十一个作业，像十一根蜡烛，照亮你熬夜的黑眼圈。",
+      "🕛 十二点钟声敲响前，你能搞定这“一打”作业吗？",
+      "👻 黑色星期五的恐惧？不，是十三个作业的怨念！",
+      "💕 十四份作业... 这是作业对你最深情的告白。",
+      "🌙 月圆之夜，十五份作业让你化身为“赶工狼人”。",
+      "十六岁的花季已远去，十六个作业的雨季正当时。",
+      "十七岁的单车可以骑，十七个作业真的写不动啊！",
+      "十八岁成年了，该学会独立面对这十八个作业了。",
+      "十九层地狱？不，是十九个作业的磨炼！",
+      "💣 二十个作业！你这是在搞作业批发市场吗？！"
+    ];
+    return messages[count] || `😱 救命！${count} 个作业大军压境，救护车在路上了！`;
+  };
+
+  const displayedHomeworks = viewMode === "today" 
+    ? sortTodayHomeworks(records, currentTime) 
+    : sortRecordHomeworks(records);
+  const listTitleCountLabel = getHumorousCount(displayedHomeworks.length, viewMode);
+
   return (
     <div className="shell">
       <div className="page-header">
@@ -473,18 +493,15 @@ export default function App() {
                   记录
                 </button>
               </div>
+
+              <span className="list-title humorous-count">
+                {listTitleCountLabel}
+              </span>
+
               <button className="primary-button" type="button" onClick={openCreateModal}>
                 新增作业
               </button>
             </header>
-
-            <div className="list-head">
-              <span className="list-title">
-                {listTitle}
-                <span className="list-title-count">{listTitleCount}</span>
-              </span>
-              <span className="list-meta">{listMeta}</span>
-            </div>
 
             {bannerMessage ? (
               <div className="sync-banner error" role="status">
@@ -538,10 +555,11 @@ export default function App() {
                     data-list-layout="row"
                     style={listContentStyle}
                   >
-                    {currentItems.map((homework) => (
+                    {currentItems.map((homework, index) => (
                       <HomeworkCard
                         key={homework.id}
                         homework={homework}
+                        isNearBottom={index >= currentItems.length - 3}
                         fullDate={!isTodayView}
                         onEdit={openEditModal}
                         onDelete={handleDelete}

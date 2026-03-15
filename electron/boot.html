@@ -5,365 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Realmork</title>
     <style>
-      @font-face {
-        font-family: "Realmork Sans";
-        src: url("../public/fonts/realmork-sans-sc-vf.woff2") format("woff2"),
-          url("../dist/fonts/realmork-sans-sc-vf.woff2") format("woff2");
-        font-style: normal;
-        font-weight: 200 900;
-        font-display: swap;
-      }
-
       :root {
-        color-scheme: light;
-        --font-sans: "Realmork Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
-          "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
-        font-family: var(--font-sans);
-        font-synthesis: none;
-        text-rendering: auto;
-        -webkit-font-smoothing: auto;
-        -moz-osx-font-smoothing: auto;
-        --page: #edf3f8;
-        --panel: rgba(252, 253, 255, 1);
-        --panel-stroke: rgba(88, 104, 122, 0.18);
-        --panel-shadow: 0 24px 50px rgba(18, 29, 40, 0.16);
-        --text: #182330;
-        --text-soft: #5b6978;
-        --warn: #8a6369;
-        --warn-soft: #7a5e63;
-        --loader-aura-primary: rgba(68, 100, 132, 0.1);
-        --loader-aura-secondary: rgba(122, 148, 173, 0.12);
-        --loader-sheet-back: #e6edf4;
-        --loader-sheet-middle: #eef4f8;
-        --loader-sheet-front: #f8fbfd;
-        --loader-sheet-border: rgba(88, 104, 122, 0.18);
-        --loader-line: rgba(116, 136, 156, 0.18);
-        --loader-line-strong: rgba(54, 82, 107, 0.42);
-        --loader-seal: #42627f;
-        --loader-progress-track: #e1e9f1;
-        --loader-progress-fill: #425974;
-        --loader-shadow: 0 14px 28px rgba(24, 37, 50, 0.1);
-        --loader-shadow-soft: 0 8px 18px rgba(24, 37, 50, 0.08);
+        /* 温暖琥珀沙砾 HSL */
+        --h: 35;
+        --s: 10%;
+        --page: hsl(var(--h), var(--s), 97%);
+        --surface: hsl(var(--h), var(--s), 91%);
+        --surface-strong: hsl(var(--h), var(--s), 86%);
+        --action: hsl(25, 15%, 35%);
+        --text: hsl(25, 15%, 15%);
+        --text-soft: hsl(25, 10%, 45%);
+        --warn: hsl(15, 20%, 50%);
+        
+        --font-sans: "Inter", "system-ui", "-apple-system", sans-serif;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
-      html,
       body {
         margin: 0;
-        min-height: 100%;
-      }
-
-      body {
-        min-height: 100vh;
+        height: 100vh;
         display: grid;
         place-items: center;
-        padding: 28px;
         background: var(--page);
         color: var(--text);
         font-family: var(--font-sans);
-        font-weight: 400;
-        line-height: 1.55;
+        letter-spacing: 0.03em;
       }
 
       body.is-error {
-        --loader-aura-primary: rgba(138, 99, 105, 0.1);
-        --loader-aura-secondary: rgba(138, 99, 105, 0.12);
-        --loader-sheet-border: rgba(138, 99, 105, 0.18);
-        --loader-line: rgba(138, 99, 105, 0.16);
-        --loader-line-strong: rgba(138, 99, 105, 0.34);
-        --loader-seal: #8a6369;
-        --loader-progress-track: #f0e4e7;
-        --loader-progress-fill: #8a6369;
-      }
-
-      .warm-loader {
-        position: relative;
-        width: 208px;
-        min-height: 184px;
-        display: grid;
-        place-items: center;
-        padding: 14px 0 8px;
-      }
-
-      .warm-loader-aura,
-      .warm-loader-sheet {
-        position: absolute;
-      }
-
-      .warm-loader-aura {
-        border-radius: 999px;
-        opacity: 0.7;
-        animation: warmLoaderBreath 3.2s ease-in-out infinite;
-      }
-
-      .warm-loader-aura-primary {
-        width: 148px;
-        height: 148px;
-        background: var(--loader-aura-primary);
-        border: 1px solid rgba(93, 120, 150, 0.12);
-      }
-
-      .warm-loader-aura-secondary {
-        width: 104px;
-        height: 104px;
-        background: var(--loader-aura-secondary);
-        border: 1px solid rgba(122, 148, 173, 0.14);
-        animation-delay: 0.2s;
-      }
-
-      body.is-error .warm-loader-aura-primary {
-        border-color: rgba(138, 99, 105, 0.14);
-      }
-
-      body.is-error .warm-loader-aura-secondary {
-        border-color: rgba(138, 99, 105, 0.16);
-      }
-
-      .warm-loader-stack {
-        position: relative;
-        width: 176px;
-        height: 148px;
-        animation: warmLoaderFloat 3.4s ease-in-out infinite;
-      }
-
-      .warm-loader-sheet {
-        top: 50%;
-        left: 50%;
-        border-radius: 28px;
-        border: 1px solid var(--loader-sheet-border);
-      }
-
-      .warm-loader-sheet-back,
-      .warm-loader-sheet-middle {
-        width: 132px;
-        height: 104px;
-        box-shadow: var(--loader-shadow-soft);
-      }
-
-      .warm-loader-sheet-back {
-        transform: translate(-50%, -50%) rotate(-8deg) translate(-18px, 12px);
-        background: var(--loader-sheet-back);
-      }
-
-      .warm-loader-sheet-middle {
-        transform: translate(-50%, -50%) rotate(7deg) translate(14px, -6px);
-        background: var(--loader-sheet-middle);
-      }
-
-      .warm-loader-sheet-front {
-        width: 150px;
-        height: 118px;
-        padding: 22px 18px 18px;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 11px;
-        overflow: hidden;
-        transform: translate(-50%, -50%);
-        background: var(--loader-sheet-front);
-        box-shadow: var(--loader-shadow);
-      }
-
-      .warm-loader-sheet-front::before,
-      .warm-loader-sheet-front::after {
-        content: none;
-      }
-
-      .warm-loader-seal {
-        position: relative;
-        width: 40px;
-        height: 40px;
-        border-radius: 16px;
-        background: var(--loader-seal);
-        border: 1px solid rgba(66, 98, 127, 0.16);
-        box-shadow: 0 6px 14px rgba(24, 37, 50, 0.1);
-      }
-
-      body.is-error .warm-loader-seal {
-        border-color: rgba(138, 99, 105, 0.16);
-      }
-
-      .warm-loader-seal::before {
-        content: "";
-        position: absolute;
-        inset: 9px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.42);
-      }
-
-      .warm-loader-line {
-        position: relative;
-        z-index: 1;
-        display: block;
-        height: 10px;
-        border-radius: 999px;
-        background: var(--loader-line);
-      }
-
-      .warm-loader-line-title {
-        width: 82%;
-        background: var(--loader-line-strong);
-      }
-
-      .warm-loader-line-meta {
-        width: 58%;
-      }
-
-      .warm-loader-progress {
-        position: relative;
-        z-index: 1;
-        width: 100%;
-        height: 10px;
-        margin-top: auto;
-        overflow: hidden;
-        border-radius: 999px;
-        background: var(--loader-progress-track);
-      }
-
-      .warm-loader-progress-bar {
-        width: 68%;
-        height: 100%;
-        border-radius: inherit;
-        background: var(--loader-progress-fill);
-        transform-origin: left center;
-        animation: warmLoaderSweep 1.8s ease-in-out infinite;
+        --action: var(--warn);
       }
 
       .boot-shell {
-        width: min(100%, 372px);
-        display: grid;
-      }
-
-      .boot-panel {
-        display: grid;
-        justify-items: center;
-        gap: 14px;
-        padding: 30px 28px 26px;
-        border: 1px solid var(--panel-stroke);
-        border-radius: 30px;
-        background: var(--panel);
-        box-shadow: var(--panel-shadow);
-      }
-
-      .boot-title,
-      .boot-copy {
-        margin: 0;
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 32px;
+      }
+
+      .warm-loader-stack {
+        width: 48px;
+        height: 48px;
+        border: 3px solid var(--surface-strong);
+        border-top-color: var(--action);
+        border-radius: 50%;
+        animation: spin 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
 
       .boot-title {
-        color: var(--text);
         font-size: 20px;
-        font-weight: 600;
-        line-height: 1.25;
-        letter-spacing: 0;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        letter-spacing: -0.02em;
       }
 
       .boot-copy {
-        max-width: 18em;
-        color: var(--text-soft);
         font-size: 14px;
-        line-height: 1.55;
+        color: var(--text-soft);
+        margin: 0;
+        font-weight: 300;
       }
 
-      body.is-error .boot-title,
-      body.is-error .boot-copy {
-        color: var(--warn-soft);
-      }
-
-      body.is-error .warm-loader-aura,
-      body.is-error .warm-loader-stack,
-      body.is-error .warm-loader-progress-bar {
+      body.is-error .warm-loader-stack {
         animation-play-state: paused;
-      }
-
-      @keyframes warmLoaderBreath {
-        0%,
-        100% {
-          opacity: 0.44;
-          transform: scale(0.9);
-        }
-
-        50% {
-          opacity: 0.86;
-          transform: scale(1);
-        }
-      }
-
-      @keyframes warmLoaderFloat {
-        0%,
-        100% {
-          transform: translateY(0);
-        }
-
-        50% {
-          transform: translateY(-6px);
-        }
-      }
-
-      @keyframes warmLoaderSweep {
-        0%,
-        100% {
-          transform: scaleX(0.5);
-          opacity: 0.78;
-        }
-
-        45% {
-          transform: scaleX(1);
-          opacity: 1;
-        }
-
-        70% {
-          transform: scaleX(0.72);
-          opacity: 0.9;
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .warm-loader-aura,
-        .warm-loader-stack,
-        .warm-loader-progress-bar {
-          animation-duration: 0.01ms;
-          animation-iteration-count: 1;
-        }
+        border-color: var(--warn);
+        opacity: 0.5;
       }
     </style>
   </head>
   <body>
     <main class="boot-shell">
-      <section class="boot-panel" role="status" aria-live="polite" aria-label="Realmork 正在准备中">
-        <div class="warm-loader" aria-hidden="true">
-          <span class="warm-loader-aura warm-loader-aura-primary"></span>
-          <span class="warm-loader-aura warm-loader-aura-secondary"></span>
-          <div class="warm-loader-stack">
-            <span class="warm-loader-sheet warm-loader-sheet-back"></span>
-            <span class="warm-loader-sheet warm-loader-sheet-middle"></span>
-            <div class="warm-loader-sheet warm-loader-sheet-front">
-              <span class="warm-loader-seal"></span>
-              <span class="warm-loader-line warm-loader-line-title"></span>
-              <span class="warm-loader-line warm-loader-line-meta"></span>
-              <span class="warm-loader-progress">
-                <span class="warm-loader-progress-bar"></span>
-              </span>
-            </div>
-          </div>
-        </div>
+      <div class="warm-loader-stack"></div>
+      <div class="boot-text">
         <p class="boot-title" data-role="title">正在准备 Realmork</p>
         <p class="boot-copy" data-role="copy">正在准备界面与作业数据，请稍候。</p>
-      </section>
+      </div>
     </main>
     <script>
       const params = new URLSearchParams(window.location.search);
       const state = params.get("state");
       if (state === "error") {
-        const panel = document.querySelector(".boot-panel");
         document.body.classList.add("is-error");
-        panel?.setAttribute("aria-label", "Realmork 启动失败");
-        document.querySelector("[data-role='title']").textContent = "Realmork 启动失败";
-        document.querySelector("[data-role='copy']").textContent = "本地服务暂时没有准备好，请稍后重试。";
+        document.querySelector("[data-role='title']").textContent = "启动失败";
+        document.querySelector("[data-role='copy']").textContent = "本地服务未就绪，请稍后重试。";
       }
     </script>
   </body>

@@ -6,12 +6,13 @@ import type { Homework } from "../lib/types";
 type HomeworkCardProps = {
   homework: Homework;
   fullDate?: boolean;
+  isNearBottom?: boolean;
   onEdit: (homework: Homework) => void;
   onDelete: (homework: Homework) => Promise<void>;
   onToggleSubmitted: (homework: Homework) => Promise<void>;
 };
 
-export function HomeworkCard({ homework, fullDate = false, onEdit, onDelete, onToggleSubmitted }: HomeworkCardProps) {
+export function HomeworkCard({ homework, fullDate = false, isNearBottom = false, onEdit, onDelete, onToggleSubmitted }: HomeworkCardProps) {
   const tone = getHomeworkTone(homework);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -24,10 +25,19 @@ export function HomeworkCard({ homework, fullDate = false, onEdit, onDelete, onT
         ? "待办"
         : "未交";
 
-  const cardClass = tone === "attention" ? "homework-card row-layout attention" : "homework-card row-layout";
+  const cardClass = [
+    "homework-card",
+    tone === "attention" ? "attention" : "",
+    menuOpen ? "is-menu-open" : ""
+  ].filter(Boolean).join(" ");
+
   const statusClass = tone === "attention" ? "status-badge attention" : tone === "done" ? "status-badge done" : "status-badge";
   const dueLabel = fullDate ? formatFullDateTime(homework.dueAt) : formatDateTime(homework.dueAt);
-  const menuClass = menuOpen ? "action-menu open" : "action-menu";
+  const menuClass = [
+    "action-menu",
+    menuOpen ? "open" : "",
+    isNearBottom ? "is-bottom" : ""
+  ].filter(Boolean).join(" ");
   const triggerClass = menuOpen ? "icon-button action-trigger open" : "icon-button action-trigger";
 
   useEffect(() => {
@@ -64,13 +74,21 @@ export function HomeworkCard({ homework, fullDate = false, onEdit, onDelete, onT
   return (
     <article className={cardClass}>
       <div className="card-main">
-        <span className="subject">{homework.subject}</span>
-        <div className="content">{homework.content}</div>
+        <header className="subject-block">
+          <span className="subject-line"></span>
+          <span className="subject">{homework.subject}</span>
+        </header>
+        <div className="content-area">
+          <p className="content">{homework.content}</p>
+        </div>
       </div>
       <div className="card-side">
-        <time className="deadline" dateTime={homework.dueAt}>
-          {dueLabel}
-        </time>
+        <div className="meta-info">
+          <time className="deadline" dateTime={homework.dueAt}>
+            {dueLabel}
+          </time>
+          <span className={statusClass}>{statusLabel}</span>
+        </div>
         <div ref={menuRef} className={menuClass}>
           <button
             className={triggerClass}

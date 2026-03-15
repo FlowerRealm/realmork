@@ -16,12 +16,11 @@ export function FloatingTopbar({ currentTime, dailyQuote }: FloatingTopbarProps)
           {topbarDate}
         </time>
         {dailyQuote ? (
-          <div className="topbar-quote-group">
-            <p className="topbar-quote-line">
-              <span className="topbar-quote">“{dailyQuote.text}”</span>
-              <span className="topbar-quote-author">- {dailyQuote.author}</span>
-            </p>
-          </div>
+          <p className="topbar-quote-line">
+            <span className="topbar-quote-divider">/</span>
+            <span className="topbar-quote">“{dailyQuote.text}”</span>
+            <span className="topbar-quote-author">— {dailyQuote.author}</span>
+          </p>
         ) : null}
       </div>
     </header>
