@@ -102,9 +102,9 @@
 
 .topbar-date {
   flex: 0 0 auto;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 16px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
   color: var(--text);
 }
 
@@ -121,7 +121,7 @@
   margin: 0;
   color: var(--text);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
@@ -174,9 +174,9 @@
 
 .summary-title {
   margin: 0;
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 20px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
   color: var(--text);
 }
 
@@ -185,7 +185,7 @@
   display: grid;
   gap: 8px;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.55;
   color: var(--text-soft);
 }
 
@@ -213,15 +213,15 @@
 
 .summary-stat-label {
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 1.35;
   color: var(--text-soft);
 }
 
 .summary-stat-value {
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 21px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.05;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
@@ -248,6 +248,7 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
+  line-height: 1.4;
   color: var(--text-soft);
 }
 
@@ -283,8 +284,8 @@
 
 .summary-item-subject {
   min-width: 0;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: var(--font-weight-medium);
   color: var(--text);
 }
 
@@ -295,7 +296,7 @@
 .summary-item-content {
   margin: 0;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.5;
   color: var(--text-soft);
   white-space: nowrap;
   overflow: hidden;
@@ -307,7 +308,8 @@
 }
 
 .summary-item-date {
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--text-faint);
 }
 
@@ -328,7 +330,7 @@
   background: var(--surface-muted-strong);
   color: var(--text-soft);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .summary-pill.attention {
@@ -401,7 +403,8 @@
   border-radius: 999px;
   background: transparent;
   color: var(--text-soft);
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
 }
 
 .switch-button.active {
@@ -416,7 +419,8 @@
   height: 38px;
   padding: 0 15px;
   border-radius: 14px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: var(--font-weight-medium);
 }
 
 .primary-button {
@@ -474,12 +478,13 @@
   padding: 2px 2px 4px;
   border-bottom: none;
   font-size: 13px;
+  line-height: 1.45;
   color: var(--text-soft);
 }
 
 .list-head span:first-child {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text);
 }
 
@@ -508,8 +513,8 @@
   margin: 0;
   color: var(--loader-copy);
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
 }
 
 .sync-banner {
@@ -547,7 +552,7 @@
 
 .empty-card h3 {
   font-size: 17px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text);
 }
 
@@ -613,9 +618,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: clamp(15px, calc(var(--row-height, 96px) * 0.28), 22px);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: clamp(16px, calc(var(--row-height, 96px) * 0.27), 21px);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
 }
 
 .homework-card.attention .subject {
@@ -642,7 +647,7 @@
   background: var(--surface-muted-strong);
   color: var(--text-soft);
   font-size: clamp(11px, calc(var(--row-height, 96px) * 0.18), 15px);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
 
@@ -663,8 +668,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: clamp(13px, calc(var(--row-height, 96px) * 0.24), 19px);
-  line-height: 1.25;
+  font-size: clamp(13px, calc(var(--row-height, 96px) * 0.22), 18px);
+  line-height: 1.4;
   color: var(--text);
 }
 
@@ -677,7 +682,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: clamp(11px, calc(var(--row-height, 96px) * 0.2), 16px);
+  font-size: clamp(11px, calc(var(--row-height, 96px) * 0.19), 15px);
+  line-height: 1.35;
   color: var(--text-soft);
   text-align: right;
 }
@@ -749,7 +755,8 @@
 }
 
 .menu-status-label {
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--text-soft);
 }
 
@@ -841,8 +848,10 @@
 
 .modal-header h2 {
   margin: 0;
-  font-size: 20px;
-  letter-spacing: -0.01em;
+  font-size: 21px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 
 .modal-form {
@@ -864,7 +873,7 @@
 
 .modal-form span {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   color: var(--text-soft);
 }
 
@@ -879,7 +888,8 @@
   outline: none;
   box-shadow: none;
   font-size: 14px;
-  line-height: 1.5;
+  font-weight: var(--font-weight-regular);
+  line-height: 1.55;
   transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -926,7 +936,7 @@
   margin: 0;
   color: var(--warn);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 @media (max-width: 720px) {

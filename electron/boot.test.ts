@@ -2,10 +2,13 @@ import bootHtml from "./boot.html?raw";
 import mainProcessSource from "./main.js?raw";
 
 describe("electron boot page", () => {
-  it("uses the refreshed copy and crisp font rendering defaults", () => {
+  it("uses the bundled Source Han Sans shell and crisp font rendering defaults", () => {
     expect(bootHtml).toContain("正在准备界面与作业数据，请稍候。");
     expect(bootHtml).not.toContain("暖色界面与作业数据正在就绪，请稍候。");
-    expect(bootHtml).toContain("font-family: system-ui");
+    expect(bootHtml).toContain('font-family: "Realmork Sans";');
+    expect(bootHtml).toContain("../public/fonts/realmork-sans-sc-vf.woff2");
+    expect(bootHtml).toContain("../dist/fonts/realmork-sans-sc-vf.woff2");
+    expect(bootHtml).toContain('--font-sans: "Realmork Sans"');
     expect(bootHtml).not.toContain("text-rendering: optimizeLegibility");
     expect(bootHtml).not.toContain("-webkit-font-smoothing: antialiased");
     expect(bootHtml).not.toContain("-moz-osx-font-smoothing: grayscale");
