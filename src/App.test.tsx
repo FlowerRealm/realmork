@@ -437,7 +437,7 @@ describe("App", () => {
     expect(screen.getByText("- 老子")).toBeInTheDocument();
   });
 
-  it("shows remaining homework count in the list title across view switches", async () => {
+  it("uses unsubmitted homework counts in today view and total counts in record view", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     const urgentHomework = buildHomework(1, {
@@ -484,15 +484,39 @@ describe("App", () => {
     const listTitle = container.querySelector(".list-title");
 
     expect(listTitle).not.toBeNull();
-    expect(listTitle).toHaveTextContent("今日作业（4）");
-    expect(screen.getByText("按截止")).toBeInTheDocument();
-    expect(screen.queryByLabelText("作业概览")).not.toBeInTheDocument();
+    expect(listTitle).toHaveTextContent("4 份未交作业");
+    expect(listTitle).not.toHaveTextContent("5 份未交作业");
 
     fireEvent.click(screen.getByRole("button", { name: "记录" }));
 
-    expect(listTitle).toHaveTextContent("全部记录（4）");
-    expect(screen.getByText("最新在前")).toBeInTheDocument();
-    expect(screen.queryByText("全部记录（5）")).not.toBeInTheDocument();
+    expect(listTitle).toHaveTextContent("📚 已封印 5 个历史遗迹");
+  });
+
+  it("does not count submitted homework in the today headline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
+    vi.mocked(api.listHomeworks).mockResolvedValue([
+      buildHomework(1, {
+        dueAt: "2026-03-12T08:00:00+08:00",
+        submitted: true,
+        submittedAt: "2026-03-12T08:10:00+08:00"
+      }),
+      buildHomework(2, {
+        dueAt: "2026-03-12T10:00:00+08:00"
+      }),
+      buildHomework(3, {
+        dueAt: "2026-03-12T11:30:00+08:00"
+      })
+    ]);
+
+    const { container } = render(<App />);
+    await flushMicrotasks();
+
+    const listTitle = container.querySelector(".list-title");
+
+    expect(listTitle).not.toBeNull();
+    expect(listTitle).toHaveTextContent("2 份未交作业");
+    expect(listTitle).not.toHaveTextContent("3 份未交作业");
   });
 
   it("limits homework subjects to supported choices in the modal", async () => {
