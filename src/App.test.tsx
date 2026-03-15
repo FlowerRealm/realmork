@@ -169,7 +169,7 @@ describe("App", () => {
     expect(api.listHomeworks).toHaveBeenCalledWith("records");
   });
 
-  it("keeps the refreshed layout containers for page, summary and modal", async () => {
+  it("keeps the refreshed layout containers for page, list and modal", async () => {
     vi.mocked(api.listHomeworks).mockResolvedValue([]);
     const user = userEvent.setup();
 
@@ -181,8 +181,8 @@ describe("App", () => {
     expect(container.querySelector(".floating-topbar")).not.toBeNull();
     expect(container.querySelector(".dashboard-layout")).not.toBeNull();
     expect(container.querySelector(".list-panel")).not.toBeNull();
-    expect(container.querySelector(".summary-panel")).not.toBeNull();
-    expect(container.querySelector(".summary-metrics")).not.toBeNull();
+    expect(container.querySelector(".summary-panel")).toBeNull();
+    expect(container.querySelector(".summary-metrics")).toBeNull();
 
     await user.click(await screen.findByRole("button", { name: "新增作业" }));
 
@@ -280,8 +280,8 @@ describe("App", () => {
     );
     const user = userEvent.setup();
 
-    render(<App />);
-    const listPanel = screen.getByText("今日作业").closest(".list-panel");
+    const { container } = render(<App />);
+    const listPanel = container.querySelector(".list-panel");
 
     expect(listPanel).not.toBeNull();
     expect(await within(listPanel as HTMLElement).findByText("backend start timeout")).toBeInTheDocument();
@@ -309,8 +309,8 @@ describe("App", () => {
     vi.mocked(api.listHomeworks).mockResolvedValueOnce([initialHomework]).mockResolvedValueOnce([refreshedHomework]);
     const user = userEvent.setup();
 
-    render(<App />);
-    const listPanel = screen.getByText("今日作业").closest(".list-panel");
+    const { container } = render(<App />);
+    const listPanel = container.querySelector(".list-panel");
 
     expect(listPanel).not.toBeNull();
     expect(await within(listPanel as HTMLElement).findByText("初始内容")).toBeInTheDocument();
@@ -345,10 +345,11 @@ describe("App", () => {
         })
     );
 
-    render(<App />);
+    const { container } = render(<App />);
 
-    const listPanel = await screen.findByText("今日作业");
-    expect(within(listPanel.closest(".list-panel") as HTMLElement).getByText("按截止")).toBeInTheDocument();
+    const listPanel = container.querySelector(".list-panel");
+    expect(listPanel).not.toBeNull();
+    expect(await within(listPanel as HTMLElement).findByText("按截止")).toBeInTheDocument();
     expect(screen.getByLabelText("当前日期与每日一言")).toBeInTheDocument();
     expect(screen.queryByText("“学而不思则罔，思而不学则殆。”")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
@@ -436,7 +437,7 @@ describe("App", () => {
     expect(screen.getByText("- 老子")).toBeInTheDocument();
   });
 
-  it("shows condensed summary info in a compact side panel", async () => {
+  it("shows remaining homework count in the list title across view switches", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     const urgentHomework = buildHomework(1, {
@@ -477,19 +478,21 @@ describe("App", () => {
       overdueHomework
     ]);
 
-    render(<App />);
-    const summaryPanel = screen.getByLabelText("作业概览");
+    const { container } = render(<App />);
     await flushMicrotasks();
 
-    expect(within(summaryPanel).getByLabelText("待提交 4")).toBeInTheDocument();
-    expect(within(summaryPanel).getByLabelText("需立即处理 2")).toBeInTheDocument();
-    expect(within(summaryPanel).getByText("当前 今日作业")).toBeInTheDocument();
-    expect(within(summaryPanel).getByText("按截止")).toBeInTheDocument();
-    expect(within(summaryPanel).getByText("待处理")).toBeInTheDocument();
-    expect(within(summaryPanel).getByText("补交实验")).toBeInTheDocument();
-    expect(within(summaryPanel).getByText("先交作文")).toBeInTheDocument();
-    expect(within(summaryPanel).queryByText("数学卷")).not.toBeInTheDocument();
-    expect(within(summaryPanel).queryByText("英语背诵")).not.toBeInTheDocument();
+    const listTitle = container.querySelector(".list-title");
+
+    expect(listTitle).not.toBeNull();
+    expect(listTitle).toHaveTextContent("今日作业（4）");
+    expect(screen.getByText("按截止")).toBeInTheDocument();
+    expect(screen.queryByLabelText("作业概览")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "记录" }));
+
+    expect(listTitle).toHaveTextContent("全部记录（4）");
+    expect(screen.getByText("最新在前")).toBeInTheDocument();
+    expect(screen.queryByText("全部记录（5）")).not.toBeInTheDocument();
   });
 
   it("limits homework subjects to supported choices in the modal", async () => {
@@ -586,32 +589,25 @@ describe("App", () => {
     expect((listContent as HTMLElement).style.getPropertyValue("--row-height")).toBe("96px");
   });
 
-  it("highlights urgent homework across the card and summary item", async () => {
+  it("highlights urgent homework on the card and menu status badge", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-12T09:15:00+08:00"));
     vi.mocked(api.listHomeworks).mockResolvedValue([buildHomework(1, { dueAt: "2026-03-12T08:00:00+08:00" })]);
     vi.mocked(api.submitHomework).mockResolvedValue(buildHomework(1, { submitted: true, submittedAt: "2026-03-12T09:00:00+08:00" }));
-    const user = userEvent.setup();
 
     const { container } = render(<App />);
     await flushMicrotasks();
 
     const listPanel = container.querySelector(".list-panel");
-    const summaryPanel = container.querySelector(".summary-panel");
 
     expect(listPanel).not.toBeNull();
-    expect(summaryPanel).not.toBeNull();
 
     const urgentCard = container.querySelector(".homework-card");
     const urgentMenu = await openHomeworkMenu(urgentCard as HTMLElement);
     const urgentBadge = within(urgentMenu).getByText("要交");
-    const summaryBadge = within(summaryPanel as HTMLElement).getByText("要交");
-    const summaryItem = within(summaryPanel as HTMLElement).getByText("作业内容 1").closest(".summary-item");
 
     expect(urgentBadge).toHaveClass("status-badge", "attention");
     expect(urgentCard).toHaveClass("homework-card", "attention");
-    expect(summaryBadge).toHaveClass("summary-pill", "attention");
-    expect(summaryItem).toHaveClass("summary-item", "attention");
     expect(within(urgentMenu).getByRole("menuitem", { name: "提交" })).toBeInTheDocument();
   });
 

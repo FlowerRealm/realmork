@@ -2,12 +2,11 @@ import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState, 
 import "./styles.css";
 import { createHomework, deleteHomework, getDailyQuote, listHomeworks, submitHomework, unsubmitHomework, updateHomework } from "./lib/api";
 import { getBackendState, retryBackendStart, subscribeBackendState, type BackendState } from "./lib/backend";
-import { formatDateTime, millisecondsUntilNextBeijingMidnight } from "./lib/format";
+import { millisecondsUntilNextBeijingMidnight } from "./lib/format";
 import {
   HOMEWORK_ROW_GAP_PX,
   HOMEWORK_ROW_HEIGHT_MAX_PX,
   getHomeworkRowHeight,
-  getHomeworkTone,
   removeHomework,
   sortRecordHomeworks,
   sortTodayHomeworks,
@@ -19,7 +18,6 @@ import { FloatingTopbar } from "./components/FloatingTopbar";
 import { HomeworkCard } from "./components/HomeworkCard";
 import { HomeworkModal } from "./components/HomeworkModal";
 
-const SUMMARY_ITEM_LIMIT = 2;
 const FOCUS_REFRESH_THRESHOLD = 60_000;
 const REFRESH_INTERVAL_MS = 30_000;
 const initialBackendState: BackendState = {
@@ -70,18 +68,6 @@ function resolveBackendState(current: BackendState, next: BackendState, source: 
   }
 
   return next;
-}
-
-function getHomeworkFocusLabel(homework: Homework): string {
-  if (homework.needsSubmission) {
-    return "要交";
-  }
-
-  if (homework.isOverdue) {
-    return "逾期";
-  }
-
-  return "待办";
 }
 
 function millisecondsUntilNextMinute(now: Date): number {
@@ -327,18 +313,7 @@ export default function App() {
   const listMetaBase = isTodayView ? "按截止" : "最新在前";
   const listMeta = refreshing ? "同步中" : listMetaBase;
   const todayPendingCount = sortedTodayHomeworks.filter((homework) => !homework.submitted).length;
-  const attentionCount = sortedTodayHomeworks.filter(
-    (homework) => !homework.submitted && (homework.needsSubmission || homework.isOverdue)
-  ).length;
-  const summaryStats = [
-    { label: "待交", ariaLabel: "待提交", value: todayPendingCount },
-    { label: "紧急", ariaLabel: "需立即处理", value: attentionCount, tone: attentionCount > 0 ? "attention" : "default" }
-  ];
-  const recentPendingHomeworks = useMemo(
-    () => sortedTodayHomeworks.filter((homework) => !homework.submitted).slice(0, SUMMARY_ITEM_LIMIT),
-    [sortedTodayHomeworks]
-  );
-  const summaryMeta = `当前 ${listTitle}`;
+  const listTitleCount = hasLoadedRecords ? `（${todayPendingCount}）` : "";
 
   const bannerMessage =
     backendState.status === "error" && hasLoadedRecords
@@ -504,8 +479,11 @@ export default function App() {
             </header>
 
             <div className="list-head">
-              <span>{listTitle}</span>
-              <span>{listMeta}</span>
+              <span className="list-title">
+                {listTitle}
+                <span className="list-title-count">{listTitleCount}</span>
+              </span>
+              <span className="list-meta">{listMeta}</span>
             </div>
 
             {bannerMessage ? (
@@ -575,78 +553,6 @@ export default function App() {
               </div>
             )}
           </section>
-
-          <aside className="summary-panel" aria-label="作业概览">
-            <div className="summary-intro">
-              <h2 className="summary-title">概览</h2>
-              <p className="summary-note">
-                <span>{summaryMeta}</span>
-                <span>{listMeta}</span>
-              </p>
-            </div>
-
-            {!hasLoadedRecords && blockingErrorMessage ? (
-              <div className="summary-state error">
-                <p>{blockingErrorMessage}</p>
-                <button className="ghost-button compact" type="button" onClick={() => void handleRetryConnection()}>
-                  重试连接
-                </button>
-              </div>
-            ) : !hasLoadedRecords ? (
-              <div className="summary-state">
-                <p>{blockingLabel}</p>
-              </div>
-            ) : (
-              <>
-                <div className="summary-metrics">
-                  {summaryStats.map((stat) => (
-                    <article
-                      key={stat.label}
-                      className={stat.tone === "attention" ? "summary-stat attention" : "summary-stat"}
-                      aria-label={`${stat.ariaLabel} ${stat.value}`}
-                    >
-                      <span className="summary-stat-label">{stat.label}</span>
-                      <strong className="summary-stat-value">{stat.value}</strong>
-                    </article>
-                  ))}
-                </div>
-
-                <section className="summary-section" aria-label="最近待处理">
-                  <div className="summary-section-head">
-                    <span>待处理</span>
-                    <span>{recentPendingHomeworks.length} 条</span>
-                  </div>
-
-                  {recentPendingHomeworks.length === 0 ? (
-                    <div className="summary-empty">
-                      <p>今天没有待处理项。</p>
-                    </div>
-                  ) : (
-                    <div className="summary-list">
-                      {recentPendingHomeworks.map((homework) => {
-                        const tone = getHomeworkTone(homework);
-
-                        return (
-                          <article key={homework.id} className={tone === "attention" ? "summary-item attention" : "summary-item"}>
-                            <div className="summary-item-top">
-                              <span className="summary-item-subject">{homework.subject}</span>
-                              <span className={tone === "attention" ? "summary-pill attention" : "summary-pill"}>
-                                {getHomeworkFocusLabel(homework)}
-                              </span>
-                            </div>
-                            <p className="summary-item-content">{homework.content}</p>
-                            <time className="summary-item-date" dateTime={homework.dueAt}>
-                              截止 {formatDateTime(homework.dueAt)}
-                            </time>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </aside>
         </div>
 
         <HomeworkModal
