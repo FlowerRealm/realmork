@@ -6,8 +6,6 @@ directories:
 files:
   - electron/**
   - dist/**
-asarUnpack:
-  - resources/bin/**
 extraResources:
   - from: resources/bin
     to: bin
