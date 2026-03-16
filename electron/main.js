@@ -29,6 +29,14 @@ let backendRunID = 0;
 let appQuitting = false;
 let waitingForBackendShutdown = false;
 
+function resolveWindowIconPath() {
+  if (!app.isPackaged) {
+    return path.join(process.cwd(), "public", "app-icon.png");
+  }
+
+  return path.join(app.getAppPath(), "dist", "app-icon.png");
+}
+
 function configureApplicationMenu() {
   if (process.platform !== "darwin") {
     Menu.setApplicationMenu(null);
@@ -340,6 +348,7 @@ async function createWindow() {
     minWidth: 1366,
     minHeight: 840,
     backgroundColor: "#edf3f8",
+    icon: process.platform === "darwin" ? undefined : resolveWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs")
     }

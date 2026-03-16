@@ -40,6 +40,7 @@
     "dev": "npm run dev:backend && cross-env NODE_ENV=development ELECTRON_RENDERER_URL=http://127.0.0.1:5173 concurrently \"vite --host 127.0.0.1 --strictPort\" \"npm:dev:electron\"",
     "dev:backend": "node ./scripts/build-backend.mjs current",
     "dev:electron": "wait-on tcp:5173 && electron .",
+    "generate:icons": "node ./scripts/generate-icons.mjs",
     "start": "electron .",
     "build:renderer": "vite build",
     "build:backend": "node ./scripts/build-backend.mjs current",

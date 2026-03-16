@@ -162,7 +162,7 @@ describe("App", () => {
 
     expect(screen.getByText("3月12日 周四")).toBeInTheDocument();
     expect(screen.getByText("“学而不思则罔，思而不学则殆。”")).toBeInTheDocument();
-    expect(screen.getByText("- 孔子")).toBeInTheDocument();
+    expect(screen.getByText("— 孔子")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "记录" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新增作业" })).toBeInTheDocument();
@@ -349,7 +349,7 @@ describe("App", () => {
 
     const listPanel = container.querySelector(".list-panel");
     expect(listPanel).not.toBeNull();
-    expect(await within(listPanel as HTMLElement).findByText("按截止")).toBeInTheDocument();
+    expect(await within(listPanel as HTMLElement).findByText("今日无作业")).toBeInTheDocument();
     expect(screen.getByLabelText("当前日期与每日一言")).toBeInTheDocument();
     expect(screen.queryByText("“学而不思则罔，思而不学则殆。”")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
@@ -365,7 +365,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByLabelText("当前日期与每日一言")).toBeInTheDocument();
-    expect(screen.queryByText("- 孔子")).not.toBeInTheDocument();
+    expect(screen.queryByText("— 孔子")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "新增作业" }));
     expect(screen.getByRole("button", { name: "保存作业" })).toBeInTheDocument();
@@ -404,7 +404,7 @@ describe("App", () => {
 
     expect(screen.getByText("3月13日 周五")).toBeInTheDocument();
     expect(screen.getByText("“苟日新，日日新，又日新。”")).toBeInTheDocument();
-    expect(screen.getByText("- 《礼记》")).toBeInTheDocument();
+    expect(screen.getByText("— 《礼记》")).toBeInTheDocument();
     expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
     expect(api.listHomeworks).toHaveBeenCalledTimes(1);
   });
@@ -434,7 +434,7 @@ describe("App", () => {
 
     expect(api.getDailyQuote).toHaveBeenCalledTimes(2);
     expect(screen.getByText("“千里之行，始于足下。”")).toBeInTheDocument();
-    expect(screen.getByText("- 老子")).toBeInTheDocument();
+    expect(screen.getByText("— 老子")).toBeInTheDocument();
   });
 
   it("uses unsubmitted homework counts in today view and total counts in record view", async () => {
@@ -593,8 +593,7 @@ describe("App", () => {
     expect(listContent).toHaveAttribute("data-list-layout", "row");
     expect((listContent as HTMLElement).style.getPropertyValue("--row-height")).toBe("44px");
     expect((listContent as HTMLElement).style.getPropertyValue("--row-gap")).toBe("6px");
-    expect(firstCard).toHaveClass("row-layout");
-    expect(firstCard?.querySelector(".item-bottom")).toBeNull();
+    expect(firstCard).toHaveClass("homework-card");
     expect(within(listPanel as HTMLElement).queryByText("+2")).not.toBeInTheDocument();
     expect(within(listPanel as HTMLElement).getAllByRole("button", { name: /更多操作/ })).toHaveLength(12);
   });

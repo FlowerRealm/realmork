@@ -1,3 +1,4 @@
+import path from "node:path";
 import { backendArtifactRelativePath, backendBinaryName } from "./backend-artifacts.js";
 
 describe("backend artifacts", () => {
@@ -11,7 +12,7 @@ describe("backend artifacts", () => {
   });
 
   it("builds packaged backend paths from runtime platform and arch", () => {
-    expect(backendArtifactRelativePath("win32", "x64")).toBe("bin/win32-x64/homeworkd.exe");
-    expect(backendArtifactRelativePath("linux", "x64")).toBe("bin/linux-x64/homeworkd");
+    expect(backendArtifactRelativePath("win32", "x64")).toBe(path.join("bin", "win32-x64", "homeworkd.exe"));
+    expect(backendArtifactRelativePath("linux", "x64")).toBe(path.join("bin", "linux-x64", "homeworkd"));
   });
 });
