@@ -8,8 +8,10 @@ describe("theme foundation", () => {
     expect(themeCss).toContain("--page:");
     expect(themeCss).toContain("--surface:");
     expect(themeCss).toContain("--action:");
-    expect(themeCss).toContain('--font-sans: "Inter", "SF Pro Text", "system-ui", "-apple-system", sans-serif;');
+    expect(themeCss).toContain('--font-sans: "Realmork Sans"');
     expect(themeCss).toContain("font-family: var(--font-sans);");
+    expect(themeCss).toContain("--font-weight-semibold: 600;");
+    expect(themeCss).toContain('"Microsoft YaHei UI"');
     expect(themeCss).toContain("background: var(--page);");
   });
 

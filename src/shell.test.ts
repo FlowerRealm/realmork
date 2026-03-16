@@ -7,10 +7,12 @@ describe("renderer shell", () => {
     expect(shellHtml).toContain('<script type="module" src="/src/main.tsx"></script>');
   });
 
-  it("defines the initial light palette and font stack before React boots", () => {
-    expect(shellHtml).toContain("color-scheme: light;");
-    expect(shellHtml).toContain("background: hsl(35, 10%, 97%);");
-    expect(shellHtml).toContain('font-family: "Inter", "SF Pro Display", "system-ui"');
+  it("preloads and advertises the bundled Chinese font before React boots", () => {
+    expect(shellHtml).toContain('rel="preload"');
+    expect(shellHtml).toContain("./fonts/realmork-sans-sc-vf.woff2");
+    expect(shellHtml).toContain('--font-sans: "Realmork Sans"');
+    expect(shellHtml).not.toContain('"IBM Plex Sans"');
+    expect(shellHtml).toContain("background: #edf3f8;");
   });
 
   it("publishes the shared favicon assets from the generated icon set", () => {
