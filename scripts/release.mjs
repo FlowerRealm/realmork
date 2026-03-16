@@ -41,6 +41,7 @@ for (const target of targetsByPlatform[platform]) {
 
 await fs.cp(path.join(repoRoot, "dist"), path.join(releaseWorkspace, "dist"), { recursive: true });
 await fs.cp(path.join(repoRoot, "electron"), path.join(releaseWorkspace, "electron"), { recursive: true });
+await fs.cp(path.join(repoRoot, "build"), path.join(releaseWorkspace, "build"), { recursive: true });
 await writeReleasePackageJson(releaseWorkspace);
 
 const builderArgs = [
