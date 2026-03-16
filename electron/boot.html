@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Realmork</title>
     <style>
+      @font-face {
+        font-family: "Realmork Sans";
+        src: url("../public/fonts/realmork-sans-sc-vf.woff2") format("woff2"),
+          url("../dist/fonts/realmork-sans-sc-vf.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 200 900;
+        font-display: swap;
+      }
+
       :root {
         /* 温暖琥珀沙砾 HSL */
         --h: 35;
@@ -16,8 +25,9 @@
         --text: hsl(25, 15%, 15%);
         --text-soft: hsl(25, 10%, 45%);
         --warn: hsl(15, 20%, 50%);
-        
-        --font-sans: "Inter", "system-ui", "-apple-system", sans-serif;
+        --loader-progress-fill: hsl(25, 15%, 35%);
+        --font-sans: "Realmork Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
       }
 
       * { box-sizing: border-box; }
