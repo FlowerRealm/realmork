@@ -1,5 +1,7 @@
 import path from "node:path";
-import { ensureDir, goEnvForTarget, hostBinaryName, repoRoot, run, targetBinaryName } from "./lib.mjs";
+import fs from "node:fs/promises";
+import { backendArtifactDirectoryName, backendBinaryName } from "../electron/backend-artifacts.js";
+import { ensureDir, goEnvForTarget, hostBinaryName, repoRoot, run } from "./lib.mjs";
 
 const mode = process.argv[2] ?? "current";
 
@@ -10,11 +12,13 @@ async function buildCurrent() {
 }
 
 async function buildTarget(targetPlatform, targetArch, runtimePlatform, runtimeArch, destinationRoot) {
-  const outputDir = path.join(destinationRoot, `${runtimePlatform}-${runtimeArch}`);
+  const outputDir = path.join(destinationRoot, backendArtifactDirectoryName(runtimePlatform, runtimeArch));
+  const outputPath = path.join(outputDir, backendBinaryName(runtimePlatform));
   await ensureDir(outputDir);
-  await run("go", ["build", "-o", path.join(outputDir, targetBinaryName(targetPlatform)), "./cmd/homeworkd"], {
+  await run("go", ["build", "-o", outputPath, "./cmd/homeworkd"], {
     env: goEnvForTarget(targetPlatform, targetArch)
   });
+  await fs.access(outputPath);
 }
 
 if (mode === "current") {

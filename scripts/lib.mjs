@@ -2,15 +2,12 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { backendBinaryName } from "../electron/backend-artifacts.js";
 
 export const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 
 export function hostBinaryName() {
-  return process.platform === "win32" ? "homeworkd.exe" : "homeworkd";
-}
-
-export function targetBinaryName(targetPlatform) {
-  return targetPlatform === "win32" ? "homeworkd.exe" : "homeworkd";
+  return backendBinaryName(process.platform);
 }
 
 export async function ensureDir(dirPath) {
