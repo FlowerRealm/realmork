@@ -10,9 +10,9 @@ describe("renderer shell", () => {
   });
 
   it("publishes the shared favicon assets from the generated icon set", () => {
-    expect(shellHtml).toContain('type="image/svg+xml" href="/favicon.svg"');
-    expect(shellHtml).toContain('sizes="32x32" href="/favicon-32.png"');
-    expect(shellHtml).toContain('href="/favicon.ico"');
-    expect(shellHtml).toContain('href="/apple-touch-icon.png"');
+    expect(shellHtml).toContain('type="image/svg+xml" href="./favicon.svg"');
+    expect(shellHtml).toContain('sizes="32x32" href="./favicon-32.png"');
+    expect(shellHtml).toContain('href="./favicon.ico"');
+    expect(shellHtml).toContain('href="./apple-touch-icon.png"');
   });
 });
