@@ -1,33 +1,31 @@
 :root {
-  /* 琥珀色调 HSL */
-  --h: 35;
-  --s: 10%;
-
-  --page: hsl(var(--h), var(--s), 97%);
-  --surface: hsl(var(--h), var(--s), 91%);
-  --surface-strong: hsl(var(--h), var(--s), 86%);
+  color-scheme: light;
+  --font-sans: "Realmork Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --page: hsl(35, 10%, 97%);
+  --surface: hsl(35, 10%, 91%);
+  --surface-strong: hsl(35, 10%, 86%);
   --action: hsl(25, 15%, 35%);
-  --action-soft: hsl(var(--h), var(--s), 82%);
+  --action-soft: hsl(35, 10%, 82%);
   --text: hsl(25, 15%, 15%);
   --text-soft: hsl(25, 10%, 45%);
   --text-faint: hsl(25, 10%, 70%);
   --warn: hsl(15, 20%, 50%);
   --done: hsl(120, 8%, 40%);
-  
   --radius-s: 4px;
   --radius-m: 20px;
   --radius-l: 40px;
   --gap: 24px;
-  
-  /* 现代标准：不再使用衬线体，全部采用高水准无衬线 */
-  --font-sans: "Inter", "SF Pro Text", "system-ui", "-apple-system", sans-serif;
-  
   --letter-spacing: -0.015em;
   --line-height: 1.5;
   --transition: 0.4s cubic-bezier(0.2, 0, 0, 1);
+  font-family: var(--font-sans);
 }
 
-* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
 
 html, body, #root {
   margin: 0;

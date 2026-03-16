@@ -2,6 +2,7 @@ appId: com.flowerrealm.realmork
 productName: Realmork
 electronVersion: 37.4.0
 directories:
+  buildResources: build
   output: ../release
 files:
   - electron/**
@@ -12,6 +13,7 @@ extraResources:
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 mac:
   category: public.app-category.productivity
+  icon: icon.png
   x64ArchFiles: "**/Resources/bin/**/*"
   target:
     - target: dmg
@@ -19,6 +21,7 @@ mac:
         - universal
 linux:
   category: Office
+  icon: icons
   maintainer: FlowerRealm <flower_realm@outlook.com>
   target:
     - target: AppImage
@@ -28,6 +31,7 @@ linux:
       arch:
         - x64
 win:
+  icon: icon.ico
   target:
     - target: nsis
       arch:
