@@ -6,6 +6,8 @@ import { randomBytes } from "node:crypto";
 import readline from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { backendArtifactRelativePath, backendBinaryName } from "./backend-artifacts.js";
+import { launchBackendProcess } from "./backend-runtime.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +15,6 @@ const BACKEND_STATE_EVENT = "realmork:backend-state";
 const DEV_RENDERER_URL = process.env.ELECTRON_RENDERER_URL ?? "";
 const hasRendererDevServer = DEV_RENDERER_URL !== "";
 const useDevelopmentBackend = hasRendererDevServer || process.env.NODE_ENV === "development";
-const platformBinaryName = process.platform === "win32" ? "homeworkd.exe" : "homeworkd";
 
 let backendProcess;
 let mainWindow;
@@ -52,11 +53,10 @@ function resolveRendererEntry() {
 
 function resolveBackendBinary() {
   if (!app.isPackaged) {
-    return path.join(process.cwd(), "dist", "bin", platformBinaryName);
+    return path.join(process.cwd(), "dist", "bin", backendBinaryName(process.platform));
   }
 
-  const arch = process.arch;
-  const candidates = [path.join(process.resourcesPath, "bin", `${process.platform}-${arch}`, platformBinaryName)];
+  const candidates = [path.join(process.resourcesPath, backendArtifactRelativePath(process.platform, process.arch))];
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
@@ -248,36 +248,21 @@ function launchBackend() {
   const runID = backendRunID + 1;
   backendRunID = runID;
   const token = randomBytes(24).toString("hex");
-  const backendLaunch = resolveBackendLaunch(token);
-
-  setBackendState("starting");
-  backendProcess = spawn(backendLaunch.command, backendLaunch.args, {
-    cwd: backendLaunch.cwd,
-    env: process.env,
-    stdio: ["ignore", "pipe", "pipe"]
+  backendReadyPromise = launchBackendProcess({
+    runID,
+    token,
+    resolveBackendLaunch,
+    spawnProcess: spawn,
+    processEnv: process.env,
+    setBackendState,
+    setBackendProcess: (child) => {
+      backendProcess = child;
+    },
+    trackBackendProcess,
+    waitForBackendPort,
+    isCurrentRun: (candidateRunID) => candidateRunID === backendRunID,
+    isAppQuitting: () => appQuitting
   });
-  trackBackendProcess(backendProcess, runID);
-
-  backendReadyPromise = waitForBackendPort(backendProcess)
-    .then((port) => {
-      if (runID !== backendRunID) {
-        throw new Error("stale backend launch");
-      }
-
-      return setBackendState("ready", {
-        apiBaseUrl: `http://127.0.0.1:${port}`,
-        apiToken: token
-      });
-    })
-    .catch((error) => {
-      if (runID === backendRunID && !appQuitting) {
-        backendProcess = undefined;
-        setBackendState("error", {
-          error: error instanceof Error ? error.message : "backend start failed"
-        });
-      }
-      throw error;
-    });
 
   return backendReadyPromise;
 }
