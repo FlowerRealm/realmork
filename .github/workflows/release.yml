@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   prepare-release:
-    name: Prepare release
+    name: Prepare release metadata
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.release_meta.outputs.release_tag }}
@@ -41,19 +41,34 @@ jobs:
           echo "release_tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
+  verify:
+    name: Verify release inputs
+    needs: prepare-release
+    uses: ./.github/workflows/shared-verify.yml
+
+  create-release:
+    name: Create release entry
+    needs:
+      - prepare-release
+      - verify
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Create or reuse GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release view "${{ steps.release_meta.outputs.release_tag }}" >/dev/null 2>&1 || \
-            gh release create "${{ steps.release_meta.outputs.release_tag }}" \
-              --title "${{ steps.release_meta.outputs.release_tag }}" \
+          gh release view "${{ needs.prepare-release.outputs.release_tag }}" >/dev/null 2>&1 || \
+            gh release create "${{ needs.prepare-release.outputs.release_tag }}" \
+              --title "${{ needs.prepare-release.outputs.release_tag }}" \
               --generate-notes
 
   build-and-upload:
     name: Package (${{ matrix.name }})
-    needs: prepare-release
+    needs:
+      - prepare-release
+      - create-release
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
